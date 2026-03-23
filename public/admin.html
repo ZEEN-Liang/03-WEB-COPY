@@ -10,17 +10,17 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --ink: #1a1814; --ink-muted: #5c5850; --ink-faint: #a8a49e;
-    --paper: #f5f2ec; --rule: #d8d3ca; --accent: #c0392b;
-    --gold: #b8963e; --card-bg: #faf8f4;
-    --green: #27ae60; --amber: #e67e22; --red: #c0392b; --blue: #2980b9;
+    --ink: #152033; --ink-muted: #3d5470; --ink-faint: #8fa8c4;
+    --paper: #f0f5fb; --rule: #ccd8e8; --accent: #2e7ab5;
+    --gold: #4a9fd4; --card-bg: #f6f9fd;
+    --green: #27ae60; --amber: #e67e22; --red: #2e7ab5; --blue: #2980b9;
   }
 
   html, body { min-height: 100%; font-family: 'Noto Sans SC', sans-serif; background: var(--paper); color: var(--ink); }
 
   body::before {
     content: ''; position: fixed; inset: 0;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.025) 28px, rgba(26,24,20,0.025) 29px);
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(21,32,51,0.025) 28px, rgba(21,32,51,0.025) 29px);
     pointer-events: none; z-index: 0;
   }
 
@@ -144,7 +144,7 @@
     letter-spacing: 0.06em; white-space: nowrap;
   }
   .badge-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-  .badge.pending   { background: rgba(230,126,34,0.1);  color: #c0680a; }
+  .badge.pending   { background: rgba(46,122,181,0.1);  color: #c0680a; }
   .badge.pending   .badge-dot { background: var(--amber); }
   .badge.published { background: rgba(39,174,96,0.1);   color: #1a7a42; }
   .badge.published .badge-dot { background: var(--green); }
@@ -163,8 +163,8 @@
   .act-publish:hover:not(:disabled) { background: rgba(39,174,96,0.15); border-color: var(--green); }
   .act-hide    { color: var(--ink-muted); border-color: var(--rule); background: none; }
   .act-hide:hover:not(:disabled) { background: var(--paper); border-color: var(--ink-faint); }
-  .act-delete  { color: var(--red);      border-color: rgba(192,57,43,0.3);   background: rgba(192,57,43,0.04); }
-  .act-delete:hover:not(:disabled) { background: rgba(192,57,43,0.1); border-color: var(--red); }
+  .act-delete  { color: var(--red);      border-color: rgba(46,122,181,0.3);   background: rgba(46,122,181,0.04); }
+  .act-delete:hover:not(:disabled) { background: rgba(46,122,181,0.1); border-color: var(--red); }
 
   .attach-count { font-size: 12px; color: var(--ink-faint); }
   .attach-count.has-files { color: var(--gold); }
@@ -178,14 +178,14 @@
   /* ── Preview drawer ── */
   .drawer-overlay {
     display: none; position: fixed; inset: 0; z-index: 200;
-    background: rgba(26,24,20,0.5); justify-content: flex-end;
+    background: rgba(21,32,51,0.5); justify-content: flex-end;
   }
   .drawer-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
 
   .drawer {
     width: 480px; max-width: 90vw;
     background: var(--card-bg); height: 100%; overflow-y: auto;
-    box-shadow: -4px 0 32px rgba(26,24,20,0.18);
+    box-shadow: -4px 0 32px rgba(21,32,51,0.18);
     animation: slideLeft 0.25s ease;
     display: flex; flex-direction: column;
   }
@@ -245,13 +245,13 @@
   .drawer-publish:hover { background: #219a52; }
   .drawer-hide { background: none; color: var(--ink-muted); border-color: var(--rule); }
   .drawer-hide:hover { background: var(--paper); }
-  .drawer-delete { background: none; color: var(--red); border-color: rgba(192,57,43,0.35); }
-  .drawer-delete:hover { background: rgba(192,57,43,0.08); }
+  .drawer-delete { background: none; color: var(--red); border-color: rgba(46,122,181,0.35); }
+  .drawer-delete:hover { background: rgba(46,122,181,0.08); }
 
   /* ── Confirm dialog ── */
   .confirm-overlay {
     display: none; position: fixed; inset: 0; z-index: 300;
-    background: rgba(26,24,20,0.6); align-items: center; justify-content: center;
+    background: rgba(21,32,51,0.6); align-items: center; justify-content: center;
   }
   .confirm-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
   .confirm-box {
@@ -265,7 +265,7 @@
   .confirm-cancel { flex: 1; padding: 10px; background: none; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink-muted); transition: all 0.15s; }
   .confirm-cancel:hover { background: var(--paper); }
   .confirm-ok { flex: 1; padding: 10px; background: var(--accent); border: none; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; color: #fff; font-weight: 500; transition: background 0.15s; }
-  .confirm-ok:hover { background: #a93226; }
+  .confirm-ok:hover { background: #25679c; }
 
   /* ── Toast ── */
   .toast {

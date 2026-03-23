@@ -230,6 +230,7 @@ async function startServer() {
     ["ALTER TABLE users ADD COLUMN instruments TEXT DEFAULT NULL", "instruments"],
     ["ALTER TABLE users ADD COLUMN avatar       TEXT    DEFAULT NULL", "avatar"],
     ["ALTER TABLE users ADD COLUMN show_follows INTEGER DEFAULT 1",    "show_follows"],
+    ["ALTER TABLE users ADD COLUMN banner      TEXT    DEFAULT NULL",      "banner"],
   ]) {
     try {
       db.run(col);
@@ -682,7 +683,7 @@ async function startServer() {
   // GET /api/profile/:username — public profile
   app.get('/api/profile/:username', (req, res) => {
     const user = dbGet(
-      'SELECT id, username, nickname, bio, instruments, avatar, show_follows, created_at FROM users WHERE username = ?',
+      'SELECT id, username, nickname, bio, instruments, avatar, banner, show_follows, created_at FROM users WHERE username = ?',
       [req.params.username]
     );
     if (!user) return res.status(404).json({ error: '用户不存在' });
@@ -817,7 +818,7 @@ async function startServer() {
     ]);
     saveDb();
     const updated = dbGet(
-      'SELECT id, username, nickname, bio, instruments, avatar, show_follows FROM users WHERE id=?', [req.user.id]
+      'SELECT id, username, nickname, bio, instruments, avatar, banner, show_follows FROM users WHERE id=?', [req.user.id]
     );
     res.json(updated);
   });
@@ -832,6 +833,31 @@ async function startServer() {
       db.run('UPDATE users SET avatar=? WHERE id=?', [url, req.user.id]);
       saveDb();
       res.json({ avatar: url });
+    });
+  });
+
+  // POST /api/profile/banner — upload profile banner
+  app.post('/api/profile/banner', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号无个人主页' });
+    const bannerStorage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, avatarDir),
+      filename:    (req, file, cb) => cb(null, 'banner_' + req.user.id + safeExt(file.mimetype))
+    });
+    const uploadBanner = multer({
+      storage: bannerStorage,
+      limits: { fileSize: 8 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (['image/jpeg','image/png','image/webp'].includes(file.mimetype)) cb(null, true);
+        else cb(new Error('背景图只支持 JPG / PNG / WebP'));
+      }
+    });
+    uploadBanner.single('banner')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: '请选择图片' });
+      const url = '/avatars/' + req.file.filename;
+      db.run('UPDATE users SET banner=? WHERE id=?', [url, req.user.id]);
+      saveDb();
+      res.json({ banner: url });
     });
   });
 

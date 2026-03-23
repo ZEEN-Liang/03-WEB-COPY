@@ -10,14 +10,14 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --ink: #1a1814; --ink-muted: #5c5850; --ink-faint: #a8a49e;
-    --paper: #f5f2ec; --rule: #d8d3ca; --accent: #c0392b;
-    --gold: #b8963e; --card-bg: #faf8f4;
+    --ink: #152033; --ink-muted: #3d5470; --ink-faint: #8fa8c4;
+    --paper: #f0f5fb; --rule: #ccd8e8; --accent: #2e7ab5;
+    --gold: #4a9fd4; --card-bg: #f6f9fd;
   }
   html, body { min-height: 100%; font-family: 'Noto Sans SC', sans-serif; background: var(--paper); color: var(--ink); }
   body::before {
     content: ''; position: fixed; inset: 0;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.025) 28px, rgba(26,24,20,0.025) 29px);
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(21,32,51,0.025) 28px, rgba(21,32,51,0.025) 29px);
     pointer-events: none; z-index: 0;
   }
 
@@ -48,80 +48,157 @@
 
   /* ── Profile card ── */
   .profile-card {
-    background: var(--card-bg); border: 1px solid var(--rule); border-radius: 8px;
-    padding: 40px 44px; margin-bottom: 36px;
-    display: grid; grid-template-columns: auto 1fr; gap: 36px;
+    border: 1px solid var(--rule); border-radius: 10px;
+    margin-bottom: 36px; overflow: hidden;
     animation: fadeUp 0.5s ease both;
+    background: var(--card-bg);
+  }
+
+  /* ── Banner + info merged zone ── */
+  .profile-hero {
+    position: relative;
+    min-height: 220px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2e6a9e 50%, #4a9fd4 100%);
+    overflow: hidden;
+    padding: 36px 40px 32px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+
+  /* Background image layer */
+  .profile-hero-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background-size: cover; background-position: center;
+  }
+  .profile-hero-bg img {
+    width: 100%; height: 100%; object-fit: cover; object-position: center;
+    display: block;
+  }
+
+  /* Gradient overlay — bottom heavy so text stays readable */
+  .profile-hero-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(
+      to bottom,
+      rgba(21,32,51,0.10) 0%,
+      rgba(21,32,51,0.30) 45%,
+      rgba(21,32,51,0.72) 100%
+    );
+  }
+
+  /* Content sits above overlay */
+  .profile-hero-content {
+    position: relative; z-index: 2;
+    display: flex; align-items: flex-end; gap: 20px;
   }
 
   /* Avatar */
   .avatar-wrap { position: relative; flex-shrink: 0; }
   .avatar {
-    width: 100px; height: 100px; border-radius: 50%;
+    width: 88px; height: 88px; border-radius: 50%;
     background: var(--ink); color: #f5f2ec;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'DM Serif Display', serif; font-size: 40px;
-    overflow: hidden; border: 3px solid var(--paper);
-    box-shadow: 0 0 0 1px var(--rule);
+    font-family: 'DM Serif Display', serif; font-size: 36px;
+    overflow: hidden;
+    border: 3px solid rgba(255,255,255,0.35);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   }
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
   .avatar-edit-btn {
     position: absolute; bottom: 2px; right: 2px;
-    width: 28px; height: 28px; border-radius: 50%;
-    background: var(--ink); color: #f5f2ec; border: 2px solid var(--paper);
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(21,32,51,0.75); color: #fff;
+    border: 2px solid rgba(255,255,255,0.5);
     display: none; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 13px; transition: background 0.15s;
+    cursor: pointer; font-size: 12px; transition: background 0.15s;
+    backdrop-filter: blur(4px);
   }
   .avatar-edit-btn:hover { background: var(--accent); }
   .avatar-edit-btn.show { display: flex; }
   .avatar-file-input { display: none; }
 
-  /* Profile info */
-  .profile-info { min-width: 0; }
-
-  .profile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-  .profile-names {}
+  /* Text info in hero */
+  .profile-hero-info { flex: 1; min-width: 0; }
   .profile-nickname {
     font-family: 'Noto Serif SC', serif; font-size: 22px; font-weight: 600;
-    color: var(--ink); margin-bottom: 2px;
+    color: #fff; margin-bottom: 4px;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
   }
-  .profile-username { font-size: 13px; font-weight: 300; color: var(--ink-faint); }
-
-  .edit-profile-btn {
-    padding: 7px 18px; background: none; border: 1.5px solid var(--rule);
-    border-radius: 3px; font-family: inherit; font-size: 13px; color: var(--ink-muted);
-    cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  .profile-username { font-size: 12px; font-weight: 300; color: rgba(255,255,255,0.6); }
+  .profile-bio {
+    font-size: 13px; font-weight: 300;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+    margin-top: 6px;
   }
-  .edit-profile-btn:hover { border-color: var(--accent); color: var(--accent); }
-
+  .profile-bio.empty { color: rgba(255,255,255,0.4); font-style: italic; }
   .profile-instruments {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px;
   }
   .instrument-tag {
-    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
-    padding: 3px 10px; border-radius: 20px;
-    background: rgba(184,150,62,0.1); border: 1px solid rgba(184,150,62,0.35);
-    color: var(--gold);
+    font-size: 11px; font-weight: 400; letter-spacing: 0.06em;
+    padding: 2px 9px; border-radius: 20px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.85);
   }
 
-  .profile-bio {
-    font-size: 14px; font-weight: 300; color: var(--ink-muted);
-    line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+  /* Action buttons — top-right of hero */
+  .profile-hero-actions {
+    position: absolute; top: 16px; right: 16px; z-index: 3;
+    display: flex; gap: 8px; align-items: center;
   }
-  .profile-bio.empty { color: var(--ink-faint); font-style: italic; }
+  .edit-profile-btn {
+    padding: 6px 16px; background: rgba(21,32,51,0.5);
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+    font-family: inherit; font-size: 12px; color: rgba(255,255,255,0.85);
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    backdrop-filter: blur(4px);
+  }
+  .edit-profile-btn:hover { background: rgba(46,122,181,0.65); border-color: rgba(255,255,255,0.6); color: #fff; }
 
+  /* Banner edit button */
+  .banner-edit-btn {
+    padding: 6px 14px; background: rgba(21,32,51,0.5);
+    border: 1px solid rgba(255,255,255,0.25); border-radius: 20px;
+    font-family: inherit; font-size: 11px; font-weight: 300;
+    letter-spacing: 0.08em; color: rgba(255,255,255,0.75);
+    cursor: pointer; backdrop-filter: blur(4px); transition: all 0.2s;
+    display: none;
+  }
+  .banner-edit-btn.show { display: block; }
+  .banner-edit-btn:hover { background: rgba(46,122,181,0.65); border-color: rgba(255,255,255,0.5); color: #fff; }
+  .banner-file-input { display: none; }
+
+  /* ── Stats bar — pure white, separated from hero ── */
   .profile-stats {
-    display: flex; gap: 28px; margin-top: 18px;
-    padding-top: 18px; border-top: 1px solid var(--rule);
+    display: flex; gap: 0;
+    background: #fff;
+    border-top: 1px solid var(--rule);
   }
-  .profile-stat { text-align: center; }
-  .profile-stat-num { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink); }
+  .profile-stat {
+    flex: 1; text-align: center;
+    padding: 16px 0;
+    border-right: 1px solid var(--rule);
+  }
+  .profile-stat:last-child { border-right: none; }
+  .profile-stat-num {
+    font-family: 'DM Serif Display', serif; font-size: 22px;
+    color: var(--ink);
+  }
   .profile-stat-label { font-size: 11px; font-weight: 300; color: var(--ink-faint); margin-top: 2px; }
+
+  /* legacy selectors kept for compat */
+  .profile-info { min-width: 0; }
+  .profile-top  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .profile-names {}
+  .profile-card-top    { display: flex; }
+  .profile-card-actions{ display: flex; gap: 10px; }
+  .profile-card-body   { padding: 0; }
 
   /* ── Edit modal ── */
   .modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 200;
-    background: rgba(26,24,20,0.5); align-items: center; justify-content: center; padding: 24px;
+    background: rgba(21,32,51,0.5); align-items: center; justify-content: center; padding: 24px;
   }
   .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
   .modal {
@@ -148,7 +225,7 @@
     color: var(--ink); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
   }
   .field-input::placeholder, .field-textarea::placeholder { color: var(--ink-faint); }
-  .field-input:focus, .field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.07); }
+  .field-input:focus, .field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,122,181,0.07); }
   .field-textarea { resize: vertical; min-height: 80px; line-height: 1.7; }
   .field-hint { font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
 
@@ -159,11 +236,11 @@
     border-radius: 3px; cursor: text; min-height: 42px;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .tags-input-wrap.focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.07); }
+  .tags-input-wrap.focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,122,181,0.07); }
   .tag-item {
     display: inline-flex; align-items: center; gap: 5px;
     font-size: 12px; padding: 3px 10px 3px 10px; border-radius: 20px;
-    background: rgba(184,150,62,0.1); border: 1px solid rgba(184,150,62,0.35); color: var(--gold);
+    background: rgba(74,159,212,0.1); border: 1px solid rgba(74,159,212,0.35); color: var(--gold);
   }
   .tag-remove { cursor: pointer; font-size: 14px; line-height: 1; color: var(--gold); opacity: 0.7; transition: opacity 0.15s; border: none; background: none; padding: 0; }
   .tag-remove:hover { opacity: 1; }
@@ -189,7 +266,7 @@
     padding: 20px 0; border-bottom: 1px solid var(--rule);
     cursor: pointer; position: relative; animation: fadeUp 0.35s ease both;
   }
-  .post-item::before { content: ''; position: absolute; left: -20px; right: -20px; top: 0; bottom: 0; background: rgba(26,24,20,0.02); opacity: 0; transition: opacity 0.15s; border-radius: 4px; }
+  .post-item::before { content: ''; position: absolute; left: -20px; right: -20px; top: 0; bottom: 0; background: rgba(21,32,51,0.02); opacity: 0; transition: opacity 0.15s; border-radius: 4px; }
   .post-item:hover::before { opacity: 1; }
   .post-item:last-child { border-bottom: none; }
   .post-title { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 600; color: var(--ink); margin-bottom: 6px; transition: color 0.15s; line-height: 1.5; }
@@ -249,7 +326,7 @@
     font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s;
     position: relative;
   }
-  .btn-crop-confirm:hover { background: #a93226; }
+  .btn-crop-confirm:hover { background: #25679c; }
   .btn-crop-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-crop-confirm.loading::after {
     content: ''; position: absolute; top: 50%; left: 50%;
@@ -314,7 +391,7 @@
     background: var(--paper); border: 1px solid var(--rule);
     padding: 1px 6px; border-radius: 10px;
   }
-  .content-tab.active .tab-count { color: var(--accent); border-color: rgba(192,57,43,0.3); background: rgba(192,57,43,0.06); }
+  .content-tab.active .tab-count { color: var(--accent); border-color: rgba(46,122,181,0.3); background: rgba(46,122,181,0.06); }
 
   .tab-panel { display: none; animation: fadeUp 0.25s ease; }
   .tab-panel.active { display: block; }
@@ -404,6 +481,25 @@
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">
+        <div style="font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:12px">背景图片</div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+          <div id="modal-banner-preview" style="width:80px;height:44px;border-radius:4px;overflow:hidden;background:linear-gradient(135deg,#1e3a5f,#4a9fd4);flex-shrink:0;border:1px solid var(--rule)">
+          </div>
+          <div>
+            <button type="button" onclick="document.getElementById('modal-banner-input').click()"
+              style="padding:6px 14px;background:none;border:1.5px solid var(--rule);border-radius:3px;font-family:inherit;font-size:12px;color:var(--ink-muted);cursor:pointer;transition:all 0.2s"
+              onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+              onmouseout="this.style.borderColor='var(--rule)';this.style.color='var(--ink-muted)'">
+              选择背景图
+            </button>
+            <input type="file" id="modal-banner-input" style="display:none" accept="image/jpeg,image/png,image/webp"
+              onchange="previewModalBanner(this)">
+            <div style="font-size:11px;color:var(--ink-faint);margin-top:5px;font-weight:300">JPG / PNG / WebP · 最大 8MB</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding-top:16px;border-top:1px solid var(--rule)">
         <div style="font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:12px">隐私设置</div>
         <div class="toggle-wrap">
           <div class="toggle-label">
@@ -497,8 +593,9 @@ async function loadProfile() {
     return;
   }
   try {
+    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
     const [profRes, postsRes] = await Promise.all([
-      fetch('/api/profile/' + encodeURIComponent(targetUser)),
+      fetch('/api/profile/' + encodeURIComponent(targetUser), { headers }),
       fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts')
     ]);
     if (!profRes.ok) { page.innerHTML = `<div class="state-msg"><div class="icon">◻</div><div>用户不存在</div></div>`; return; }
@@ -556,37 +653,61 @@ function renderPage(u, posts) {
         </div>
       </div>`).join('');
 
+  const heroBg = u.banner && u.banner.startsWith('/')
+    ? `<div class="profile-hero-bg"><img src="${esc(u.banner)}" alt="banner"></div>`
+    : `<div class="profile-hero-bg"></div>`;
+  const bannerEditBtn = isOwn
+    ? `<button class="banner-edit-btn show" onclick="document.getElementById('banner-file-input').click()">✎ 更换背景</button>
+       <input type="file" id="banner-file-input" class="banner-file-input" accept="image/jpeg,image/png,image/webp">`
+    : '';
+
   document.getElementById('page').innerHTML = `
     <div class="profile-card">
-      <div class="avatar-wrap">
-        <div class="avatar" id="avatar-el">${avImg}</div>
-        ${editAvatar}
-        <input type="file" id="avatar-file-input" class="avatar-file-input" accept="image/jpeg,image/png,image/webp">
-      </div>
-      <div class="profile-info">
-        <div class="profile-top">
-          <div class="profile-names">
+      <!-- Hero: banner bg + overlay + content all in one layer -->
+      <div class="profile-hero" id="banner-el">
+        ${heroBg}
+        <div class="profile-hero-overlay"></div>
+
+        <!-- Top-right action buttons -->
+        <div class="profile-hero-actions">
+          ${bannerEditBtn}
+          ${followBtn}
+          ${editBtn}
+        </div>
+
+        <!-- Bottom content: avatar + text -->
+        <div class="profile-hero-content">
+          <div class="avatar-wrap">
+            <div class="avatar" id="avatar-el">${avImg}</div>
+            ${editAvatar}
+            <input type="file" id="avatar-file-input" class="avatar-file-input" accept="image/jpeg,image/png,image/webp">
+          </div>
+          <div class="profile-hero-info">
             <div class="profile-nickname">${esc(u.nickname || u.username)}</div>
             ${(u.nickname && isOwn) ? `<div class="profile-username">账号：${esc(u.username)}</div>` : ''}
-          </div>
-          <div style="display:flex;gap:10px;align-items:center">
-            ${followBtn}
-            ${editBtn}
+            <div class="profile-bio ${u.bio ? '' : 'empty'}">${u.bio ? esc(u.bio) : (isOwn ? '点击「编辑资料」添加简介' : '该用户还没有填写简介')}</div>
+            ${instHtml ? `<div class="profile-instruments">${instHtml}</div>` : ''}
           </div>
         </div>
-        ${instHtml ? `<div class="profile-instruments">${instHtml}</div>` : ''}
-        <div class="profile-bio ${u.bio ? '' : 'empty'}">${u.bio ? esc(u.bio) : (isOwn ? '点击「编辑资料」添加简介' : '该用户还没有填写简介')}</div>
-        <div class="profile-stats">
-          <div class="profile-stat"><div class="profile-stat-num">${u.post_count||0}</div><div class="profile-stat-label">投稿</div></div>
-          <div class="profile-stat"><div class="profile-stat-num">${u.like_count||0}</div><div class="profile-stat-label">获赞</div></div>
-          <div class="profile-stat" id="stat-followers" style="cursor:pointer" onclick="switchTab('followers')">
-            <div class="profile-stat-num" id="follower-count">${u.follower_count||0}</div>
-            <div class="profile-stat-label">粉丝</div>
-          </div>
-          <div class="profile-stat" id="stat-following" style="cursor:pointer" onclick="switchTab('following')">
-            <div class="profile-stat-num">${u.following_count||0}</div>
-            <div class="profile-stat-label">关注</div>
-          </div>
+      </div>
+
+      <!-- Stats bar — pure white -->
+      <div class="profile-stats">
+        <div class="profile-stat">
+          <div class="profile-stat-num">${u.post_count||0}</div>
+          <div class="profile-stat-label">投稿</div>
+        </div>
+        <div class="profile-stat">
+          <div class="profile-stat-num">${u.like_count||0}</div>
+          <div class="profile-stat-label">获赞</div>
+        </div>
+        <div class="profile-stat" id="stat-followers" style="cursor:pointer" onclick="switchTab('followers')">
+          <div class="profile-stat-num" id="follower-count">${u.follower_count||0}</div>
+          <div class="profile-stat-label">粉丝</div>
+        </div>
+        <div class="profile-stat" id="stat-following" style="cursor:pointer" onclick="switchTab('following')">
+          <div class="profile-stat-num">${u.following_count||0}</div>
+          <div class="profile-stat-label">关注</div>
         </div>
       </div>
     </div>
@@ -617,6 +738,8 @@ function renderPage(u, posts) {
 
   if (isOwn) {
     document.getElementById('avatar-file-input').addEventListener('change', uploadAvatar);
+    const bannerInput = document.getElementById('banner-file-input');
+    if (bannerInput) bannerInput.addEventListener('change', uploadBanner);
   }
 }
 
@@ -768,6 +891,30 @@ function uploadAvatar(e) {
   openCrop(file);
 }
 
+async function uploadBanner(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('banner', file);
+  try {
+    const res  = await fetch('/api/profile/banner', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || '上传失败', 'error'); return; }
+    // Update banner in DOM
+    const el = document.getElementById('banner-el');
+    if (el) {
+      let bg = el.querySelector('.profile-hero-bg');
+      if (!bg) { bg = document.createElement('div'); bg.className = 'profile-hero-bg'; el.insertBefore(bg, el.firstChild); }
+      let img = bg.querySelector('img');
+      if (!img) { img = document.createElement('img'); bg.appendChild(img); }
+      img.src = data.banner + '?t=' + Date.now();
+    }
+    showToast('背景图已更新');
+  } catch(e) { showToast('上传失败', 'error'); }
+}
+
 // ── Edit modal ────────────────────────────────────────────────
 let tags = [];
 
@@ -782,6 +929,13 @@ function openModal() {
   if (track) {
     const isOn = profileData.show_follows !== 0;
     track.classList.toggle('on', isOn);
+  }
+  // Init banner preview
+  const prevEl = document.getElementById('modal-banner-preview');
+  if (prevEl && profileData.banner && profileData.banner.startsWith('/')) {
+    prevEl.style.backgroundImage = 'url(' + profileData.banner + ')';
+    prevEl.style.backgroundSize  = 'cover';
+    prevEl.style.backgroundPosition = 'center';
   }
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -834,6 +988,19 @@ document.getElementById('tag-input').addEventListener('blur',   () => {
   document.getElementById('tags-wrap').classList.remove('focus');
 });
 
+function previewModalBanner(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const prev = document.getElementById('modal-banner-preview');
+    if (prev) prev.style.backgroundImage = 'url(' + e.target.result + ')';
+    if (prev) prev.style.backgroundSize = 'cover';
+    if (prev) prev.style.backgroundPosition = 'center';
+  };
+  reader.readAsDataURL(file);
+}
+
 function toggleShowFollows() {
   const track = document.getElementById('toggle-show-follows');
   if (track) track.classList.toggle('on');
@@ -846,6 +1013,18 @@ async function saveProfile() {
   const btn = document.getElementById('btn-save');
   btn.classList.add('loading'); btn.disabled = true;
   try {
+    // Upload banner first if a new one was selected
+    const bannerFileInput = document.getElementById('modal-banner-input');
+    if (bannerFileInput && bannerFileInput.files[0]) {
+      const bfd = new FormData();
+      bfd.append('banner', bannerFileInput.files[0]);
+      const bres  = await fetch('/api/profile/banner', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: bfd
+      });
+      const bdata = await bres.json();
+      if (bres.ok) profileData.banner = bdata.banner;
+      else { showToast(bdata.error || '背景图上传失败', 'error'); return; }
+    }
     const res  = await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -857,7 +1036,8 @@ async function saveProfile() {
     closeModal();
     showToast('资料已保存');
     // Re-render profile card
-    const profRes  = await fetch('/api/profile/' + encodeURIComponent(targetUser));
+    const authHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+    const profRes  = await fetch('/api/profile/' + encodeURIComponent(targetUser), { headers: authHeaders });
     const postsRes = await fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts');
     profileData = await profRes.json();
     renderPage(profileData, await postsRes.json());

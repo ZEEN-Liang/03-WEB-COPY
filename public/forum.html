@@ -10,14 +10,14 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --ink: #1a1814;
-    --ink-muted: #5c5850;
-    --ink-faint: #a8a49e;
-    --paper: #f5f2ec;
-    --rule: #d8d3ca;
-    --accent: #c0392b;
-    --gold: #b8963e;
-    --card-bg: #faf8f4;
+    --ink: #152033;
+    --ink-muted: #3d5470;
+    --ink-faint: #8fa8c4;
+    --paper: #f0f5fb;
+    --rule: #ccd8e8;
+    --accent: #2e7ab5;
+    --gold: #4a9fd4;
+    --card-bg: #f6f9fd;
   }
 
   html, body {
@@ -31,7 +31,7 @@
     content: '';
     position: fixed; inset: 0;
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.03) 28px, rgba(26,24,20,0.03) 29px);
+      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(21,32,51,0.03) 28px, rgba(21,32,51,0.03) 29px);
     pointer-events: none; z-index: 0;
   }
 
@@ -208,7 +208,7 @@
   .state-msg p { margin-bottom: 20px; }
   .state-msg a {
     font-size: 13px; color: var(--accent); text-decoration: none;
-    border-bottom: 1px solid rgba(192,57,43,0.3);
+    border-bottom: 1px solid rgba(46,122,181,0.3);
     transition: border-color 0.2s;
   }
   .state-msg a:hover { border-color: var(--accent); }
@@ -235,7 +235,7 @@
     content: '';
     position: absolute;
     left: -24px; right: -24px; top: 0; bottom: 0;
-    background: rgba(26,24,20,0.02);
+    background: rgba(21,32,51,0.02);
     opacity: 0;
     transition: opacity 0.15s;
     border-radius: 4px;
@@ -287,7 +287,7 @@
     color: var(--ink-muted);
     display: flex; align-items: center; gap: 5px;
   }
-  .post-tag.has-files { border-color: var(--gold); color: var(--gold); background: rgba(184,150,62,0.06); }
+  .post-tag.has-files { border-color: var(--gold); color: var(--gold); background: rgba(74,159,212,0.06); }
 
   .post-stat {
     display: flex; align-items: center; gap: 4px;
@@ -328,7 +328,7 @@
   .sort-tab:hover { color: var(--ink); }
   .sort-tab.active {
     background: var(--card-bg); color: var(--ink); font-weight: 500;
-    box-shadow: 0 1px 3px rgba(26,24,20,0.08);
+    box-shadow: 0 1px 3px rgba(21,32,51,0.08);
   }
   .sort-tab .sort-icon { font-size: 13px; }
 
@@ -345,7 +345,7 @@
   .modal-overlay {
     display: none;
     position: fixed; inset: 0; z-index: 200;
-    background: rgba(26,24,20,0.5);
+    background: rgba(21,32,51,0.5);
     align-items: center; justify-content: center;
     padding: 24px;
     animation: fadeIn 0.2s ease;
@@ -467,7 +467,7 @@
   }
   .tag-search-bar.open {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(192,57,43,0.07);
+    box-shadow: 0 0 0 3px rgba(46,122,181,0.07);
     border-radius: 6px 6px 0 0;
   }
 
@@ -508,7 +508,7 @@
     display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
     background: var(--card-bg); border: 1.5px solid var(--accent);
     border-top: none; border-radius: 0 0 6px 6px;
-    box-shadow: 0 8px 24px rgba(26,24,20,0.1);
+    box-shadow: 0 8px 24px rgba(21,32,51,0.1);
     overflow: hidden;
   }
   .tag-dropdown.open { display: block; animation: fadeUp 0.15s ease; }
@@ -529,10 +529,10 @@
   .tag-suggestion {
     display: inline-flex; align-items: center; gap: 5px;
     font-size: 12px; padding: 3px 10px; border-radius: 20px; cursor: pointer;
-    background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.2);
+    background: rgba(46,122,181,0.07); border: 1px solid rgba(46,122,181,0.2);
     color: var(--accent); transition: all 0.15s; font-family: inherit;
   }
-  .tag-suggestion:hover { background: rgba(192,57,43,0.15); border-color: var(--accent); }
+  .tag-suggestion:hover { background: rgba(46,122,181,0.15); border-color: var(--accent); }
   .tag-suggestion.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .tag-suggestion-count {
     font-size: 10px; opacity: 0.65;
@@ -915,18 +915,18 @@ function avatarHtml(username, avatarUrl, size = 36) {
 // ── Tag color system ─────────────────────────────────────────
 // Hash tag string to a stable index, pick from a curated palette
 const TAG_PALETTE = [
-  { bg: 'rgba(192,57,43,0.08)',  border: 'rgba(192,57,43,0.28)',  text: '#a93226' },  // red
-  { bg: 'rgba(41,128,185,0.08)', border: 'rgba(41,128,185,0.28)', text: '#1a6fa5' },  // blue
-  { bg: 'rgba(39,174,96,0.08)',  border: 'rgba(39,174,96,0.28)',  text: '#1e8449' },  // green
-  { bg: 'rgba(142,68,173,0.08)', border: 'rgba(142,68,173,0.28)', text: '#7d3c98' },  // purple
-  { bg: 'rgba(230,126,34,0.08)', border: 'rgba(230,126,34,0.28)', text: '#ca6f1e' },  // orange
-  { bg: 'rgba(22,160,133,0.08)', border: 'rgba(22,160,133,0.28)', text: '#148a72' },  // teal
-  { bg: 'rgba(184,150,62,0.08)', border: 'rgba(184,150,62,0.28)', text: '#9a7d0a' },  // gold
-  { bg: 'rgba(231,76,60,0.08)',  border: 'rgba(231,76,60,0.28)',  text: '#c0392b' },  // crimson
-  { bg: 'rgba(52,152,219,0.08)', border: 'rgba(52,152,219,0.28)', text: '#1a7ab5' },  // sky
-  { bg: 'rgba(26,188,156,0.08)', border: 'rgba(26,188,156,0.28)', text: '#17a589' },  // mint
-  { bg: 'rgba(243,156,18,0.08)', border: 'rgba(243,156,18,0.28)', text: '#b7770d' },  // amber
-  { bg: 'rgba(155,89,182,0.08)', border: 'rgba(155,89,182,0.28)', text: '#8e44ad' },  // violet
+  { bg: 'rgba(46,122,181,0.08)',  border: 'rgba(46,122,181,0.28)',  text: '#2563a8' },  // blue
+  { bg: 'rgba(26,168,180,0.08)',  border: 'rgba(26,168,180,0.28)',  text: '#0e8a96' },  // cyan
+  { bg: 'rgba(39,174,96,0.08)',   border: 'rgba(39,174,96,0.28)',   text: '#1e8449' },  // green
+  { bg: 'rgba(142,68,173,0.08)',  border: 'rgba(142,68,173,0.28)',  text: '#7d3c98' },  // purple
+  { bg: 'rgba(74,159,212,0.08)',  border: 'rgba(74,159,212,0.28)',  text: '#1a7ab5' },  // sky
+  { bg: 'rgba(22,160,133,0.08)',  border: 'rgba(22,160,133,0.28)',  text: '#148a72' },  // teal
+  { bg: 'rgba(52,100,200,0.08)',  border: 'rgba(52,100,200,0.28)',  text: '#2d5bb5' },  // indigo
+  { bg: 'rgba(100,180,230,0.08)', border: 'rgba(100,180,230,0.28)', text: '#1e6fa0' },  // steel
+  { bg: 'rgba(130,90,200,0.08)',  border: 'rgba(130,90,200,0.28)',  text: '#6040b0' },  // violet
+  { bg: 'rgba(26,188,156,0.08)',  border: 'rgba(26,188,156,0.28)',  text: '#17a589' },  // mint
+  { bg: 'rgba(70,130,180,0.08)',  border: 'rgba(70,130,180,0.28)',  text: '#2e6b9e' },  // steel-blue
+  { bg: 'rgba(155,89,182,0.08)',  border: 'rgba(155,89,182,0.28)',  text: '#8e44ad' },  // lavender
 ];
 
 function tagHash(str) {
