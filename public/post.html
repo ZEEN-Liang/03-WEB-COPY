@@ -137,6 +137,70 @@
   }
   .field-textarea { resize: vertical; min-height: 160px; line-height: 1.8; }
 
+  /* ── Tag input ── */
+  .tags-input-wrap {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 8px 10px; background: #fff; border: 1.5px solid var(--rule);
+    border-radius: 3px; cursor: text; min-height: 44px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .tags-input-wrap.focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.07); }
+  .post-tag-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.25);
+    color: var(--accent); font-weight: 400;
+  }
+  .tag-chip-remove {
+    cursor: pointer; font-size: 14px; line-height: 1; color: var(--accent);
+    opacity: 0.6; border: none; background: none; padding: 0;
+    transition: opacity 0.15s;
+  }
+  .tag-chip-remove:hover { opacity: 1; }
+  .tag-text-input {
+    border: none; outline: none; font-family: inherit; font-size: 13px;
+    font-weight: 300; color: var(--ink); background: transparent;
+    min-width: 100px; flex: 1; padding: 2px 4px;
+  }
+  .tag-text-input::placeholder { color: var(--ink-faint); }
+
+  /* ── Tag dropdown ── */
+  .tag-input-wrap {
+    position: relative;
+  }
+  .tag-suggest-dropdown {
+    display: none;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+    background: var(--card-bg); border: 1.5px solid var(--accent);
+    border-radius: 4px; box-shadow: 0 6px 20px rgba(26,24,20,0.1);
+    overflow: hidden; animation: fadeUp 0.15s ease;
+  }
+  .tag-suggest-dropdown.open { display: block; }
+
+  .tag-suggest-head {
+    padding: 8px 12px 6px;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+  }
+  .tag-suggest-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px 12px 12px;
+  }
+  .tag-suggest-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; padding: 3px 10px; border-radius: 20px;
+    cursor: pointer; border: 1px solid; font-family: inherit;
+    transition: opacity 0.15s; font-weight: 400;
+  }
+  .tag-suggest-btn:hover { opacity: 0.75; }
+  .tag-suggest-btn.already { opacity: 0.4; cursor: default; }
+  .tag-suggest-count { font-size: 10px; opacity: 0.6; }
+  .tag-suggest-hint {
+    padding: 7px 12px; font-size: 11px; color: var(--ink-faint);
+    border-top: 1px solid var(--rule); font-weight: 300;
+  }
+
   /* ── Upload zone ── */
   .upload-zone {
     border: 1.5px dashed var(--rule); border-radius: 6px;
@@ -266,6 +330,12 @@
     .submit-row { flex-direction: column; align-items: stretch; }
     .btn-submit { text-align: center; }
   }
+
+  .char-lan {
+    font-style: normal;
+    color: #6ab4e8;
+    text-shadow: 0 0 12px rgba(74,143,196,0.7), 0 0 24px rgba(74,143,196,0.3);
+  }
 </style>
 </head>
 <body>
@@ -273,7 +343,7 @@
 <div class="masthead"></div>
 <!-- Nav -->
 <nav class="nav">
-  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <a href="/cover" class="nav-logo">风<em class="char-lan">蓝</em>轻音部</a>
   <div class="nav-links">
     <a href="/forum.html" class="nav-link">广 场</a>
     <a href="/post.html" class="nav-link active">投 稿</a>
@@ -313,6 +383,23 @@
         <textarea class="field-textarea" id="post-content"
                   placeholder="详细描述你的想法，支持换行排版..."></textarea>
       </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="card">
+      <div class="card-title">标签 <span style="font-weight:300;text-transform:none;letter-spacing:0;color:var(--ink-faint)">— 最多 5 个，每个不超过 20 字</span></div>
+      <div class="tag-input-wrap" id="tag-input-wrap">
+        <div class="tags-input-wrap" id="tags-wrap" onclick="document.getElementById('tag-text-input').focus()">
+          <input class="tag-text-input" id="tag-text-input" maxlength="20"
+                 placeholder="输入标签后按 Enter 或逗号添加…" autocomplete="off">
+        </div>
+        <div class="tag-suggest-dropdown" id="tag-suggest-dropdown">
+          <div class="tag-suggest-head" id="tag-suggest-head">推荐标签</div>
+          <div class="tag-suggest-list" id="tag-suggest-list"></div>
+          <div class="tag-suggest-hint">点击添加 · 已达上限的标签显示为灰色</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-faint);font-weight:300">按 Enter 或逗号确认，按退格删除末尾标签</div>
     </div>
 
     <!-- 附件 -->
@@ -388,7 +475,178 @@ function updateCount() {
   document.getElementById('title-count').textContent = len;
 }
 
-// ── File handling ───────────────────────────────────────────
+// ── Tag color (same palette as forum.html) ───────────────────
+const TAG_PALETTE = [
+  { bg:'rgba(192,57,43,0.08)',  border:'rgba(192,57,43,0.28)',  text:'#a93226' },
+  { bg:'rgba(41,128,185,0.08)', border:'rgba(41,128,185,0.28)', text:'#1a6fa5' },
+  { bg:'rgba(39,174,96,0.08)',  border:'rgba(39,174,96,0.28)',  text:'#1e8449' },
+  { bg:'rgba(142,68,173,0.08)', border:'rgba(142,68,173,0.28)', text:'#7d3c98' },
+  { bg:'rgba(230,126,34,0.08)', border:'rgba(230,126,34,0.28)', text:'#ca6f1e' },
+  { bg:'rgba(22,160,133,0.08)', border:'rgba(22,160,133,0.28)', text:'#148a72' },
+  { bg:'rgba(184,150,62,0.08)', border:'rgba(184,150,62,0.28)', text:'#9a7d0a' },
+  { bg:'rgba(231,76,60,0.08)',  border:'rgba(231,76,60,0.28)',  text:'#c0392b' },
+  { bg:'rgba(52,152,219,0.08)', border:'rgba(52,152,219,0.28)', text:'#1a7ab5' },
+  { bg:'rgba(26,188,156,0.08)', border:'rgba(26,188,156,0.28)', text:'#17a589' },
+  { bg:'rgba(243,156,18,0.08)', border:'rgba(243,156,18,0.28)', text:'#b7770d' },
+  { bg:'rgba(155,89,182,0.08)', border:'rgba(155,89,182,0.28)', text:'#8e44ad' },
+];
+function tagHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return Math.abs(h) % TAG_PALETTE.length;
+}
+function tagColor(tag) { return TAG_PALETTE[tagHash(tag)]; }
+
+// ── Tag suggestions from backend ──────────────────────────────
+let tagSuggestCache = null;  // { tag: count }
+
+async function fetchTagSuggestions() {
+  if (tagSuggestCache) return tagSuggestCache;
+  try {
+    const res   = await fetch('/api/posts');
+    const posts = await res.json();
+    const count = {};
+    posts.forEach(p => {
+      if (!p.tags) return;
+      p.tags.split(',').map(t => t.trim()).filter(Boolean)
+        .forEach(t => { count[t] = (count[t] || 0) + 1; });
+    });
+    tagSuggestCache = count;
+  } catch(e) { tagSuggestCache = {}; }
+  return tagSuggestCache;
+}
+
+function renderTagSuggestions(query) {
+  const dropdown = document.getElementById('tag-suggest-dropdown');
+  const list     = document.getElementById('tag-suggest-list');
+  const head     = document.getElementById('tag-suggest-head');
+  if (!dropdown || !list) return;
+
+  const counts = tagSuggestCache || {};
+  const q      = query.trim().toLowerCase();
+
+  // Build sorted list: filter by query if present, else show all, max 10
+  let entries = Object.entries(counts)
+    .filter(([tag]) => !q || tag.toLowerCase().includes(q))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  if (!entries.length && q) {
+    // No match — show the typed tag as a new option
+    entries = [[query.trim(), 0]];
+  }
+
+  if (!entries.length) { dropdown.classList.remove('open'); return; }
+
+  head.textContent = q ? `搜索「${query.trim()}」` : '推荐标签';
+  const atLimit = postTags.length >= 5;
+
+  list.innerHTML = entries.map(([tag, n]) => {
+    const col     = tagColor(tag);
+    const already = postTags.includes(tag);
+    const disabled = already || atLimit;
+    return `<button class="tag-suggest-btn ${disabled ? 'already' : ''}"
+      style="background:${col.bg};border-color:${col.border};color:${col.text}"
+      ${disabled ? 'disabled' : `onclick="addTagSuggestion('${tag.replace(/'/g,"\\'")}')"`}>
+      #${tag}${n > 0 ? `<span class="tag-suggest-count">${n}</span>` : ''}
+    </button>`;
+  }).join('');
+
+  dropdown.classList.add('open');
+}
+
+function addTagSuggestion(tag) {
+  if (postTags.includes(tag) || postTags.length >= 5) return;
+  postTags.push(tag);
+  renderPostTags();
+  // Re-render suggestions to update "already added" state
+  const input = document.getElementById('tag-text-input');
+  renderTagSuggestions(input ? input.value : '');
+  if (input) input.focus();
+}
+
+function closeTagSuggestions() {
+  const dd = document.getElementById('tag-suggest-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+// Close when clicking outside
+document.addEventListener('click', e => {
+  if (!document.getElementById('tag-input-wrap')?.contains(e.target)) {
+    closeTagSuggestions();
+  }
+});
+
+// ── Tag handling ──────────────────────────────────────────────
+let postTags = [];
+
+function renderPostTags() {
+  const wrap  = document.getElementById('tags-wrap');
+  const input = document.getElementById('tag-text-input');
+  wrap.querySelectorAll('.post-tag-chip').forEach(el => el.remove());
+  postTags.forEach((tag, i) => {
+    const col  = tagColor(tag);
+    const chip = document.createElement('div');
+    chip.className = 'post-tag-chip';
+    chip.style.cssText = `background:${col.bg};border-color:${col.border};color:${col.text}`;
+    chip.innerHTML = `#${tag}<button class="tag-chip-remove" style="color:${col.text}" data-i="${i}">×</button>`;
+    wrap.insertBefore(chip, input);
+  });
+  wrap.querySelectorAll('.tag-chip-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      postTags.splice(Number(btn.dataset.i), 1);
+      renderPostTags();
+      renderTagSuggestions(document.getElementById('tag-text-input')?.value || '');
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('tag-text-input');
+  const wrap  = document.getElementById('tags-wrap');
+  if (!input) return;
+
+  // Pre-fetch tag data silently
+  fetchTagSuggestions();
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.trim().replace(/,/g, '');
+      if (val && !postTags.includes(val) && postTags.length < 5) {
+        postTags.push(val); renderPostTags();
+      }
+      input.value = '';
+      closeTagSuggestions();
+    } else if (e.key === 'Backspace' && !input.value && postTags.length) {
+      postTags.pop(); renderPostTags();
+      renderTagSuggestions('');
+    } else if (e.key === 'Escape') {
+      closeTagSuggestions();
+    }
+  });
+  input.addEventListener('input', () => {
+    renderTagSuggestions(input.value);
+  });
+  input.addEventListener('focus', async () => {
+    wrap.classList.add('focus');
+    await fetchTagSuggestions();
+    renderTagSuggestions(input.value);
+  });
+  input.addEventListener('blur', () => {
+    // Delay so click on suggestion registers first
+    setTimeout(() => {
+      const val = input.value.trim().replace(/,/g, '');
+      if (val && !postTags.includes(val) && postTags.length < 5) {
+        postTags.push(val); renderPostTags(); input.value = '';
+      }
+      wrap.classList.remove('focus');
+    }, 150);
+  });
+});
+
+// ── File handling ──────────────────────────────────────────────
 let selectedFiles = [];
 
 function formatSize(bytes) {
@@ -520,6 +778,7 @@ async function submitPost() {
   const formData = new FormData();
   formData.append('title', title);
   formData.append('content', content);
+  if (postTags.length) formData.append('tags', postTags.join(','));
   selectedFiles.forEach(f => formData.append('files', f));
 
   btn.classList.add('loading');
@@ -550,6 +809,7 @@ function resetForm() {
   document.getElementById('post-title').value = '';
   document.getElementById('post-content').value = '';
   document.getElementById('title-count').textContent = '0';
+  postTags = []; renderPostTags();
   selectedFiles = [];
   renderFileList();
   document.getElementById('form-area').style.display = 'block';

@@ -18,7 +18,7 @@ const ADMIN_PASSWORD = 'admin123456';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/avatars', express.static(path.join(__dirname, 'avatars')));
 
@@ -239,6 +239,23 @@ async function startServer() {
   }
   if (profileColsChanged) saveDb();
 
+  // danmaku table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS danmaku (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL,
+      content    TEXT NOT NULL,
+      color      TEXT NOT NULL DEFAULT '#c8dff7',
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Add tags column to posts if not exists
+  try {
+    db.run('ALTER TABLE posts ADD COLUMN tags TEXT DEFAULT NULL');
+    console.log('✅ posts 表新增列: tags');
+  } catch(e) {}
+
   // follows table
   db.run(`
     CREATE TABLE IF NOT EXISTS follows (
@@ -278,7 +295,15 @@ async function startServer() {
   // ── Routes ────────────────────────────────────────────────
 
   app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+
+  app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  });
+
+  app.get('/cover', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 
   // POST /api/register
@@ -348,15 +373,25 @@ async function startServer() {
       } else if (err) {
         return res.status(400).json({ error: err.message });
       }
-      const { title, content } = req.body;
+      const { title, content, tags } = req.body;
       if (!title || title.trim().length === 0)
         return res.status(400).json({ error: '标题不能为空' });
       if (title.trim().length > 100)
         return res.status(400).json({ error: '标题不能超过 100 字' });
       try {
+        // Sanitise tags: strip duplicates, max 5, each max 20 chars
+        const tagsArr = tags
+          ? [...new Set(
+              String(tags).split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0 && t.length <= 20)
+            )].slice(0, 5)
+          : [];
+        const tagsStr = tagsArr.length ? tagsArr.join(',') : null;
+
         db.run(
-          'INSERT INTO posts (user_id, title, content, status) VALUES (?, ?, ?, ?)',
-          [req.user.id, title.trim(), content || '', 'pending']
+          'INSERT INTO posts (user_id, title, content, status, tags) VALUES (?, ?, ?, ?, ?)',
+          [req.user.id, title.trim(), content || '', 'pending', tagsStr]
         );
         const { id: postId } = dbGet('SELECT last_insert_rowid() as id');
         if (req.files && req.files.length > 0) {
@@ -383,7 +418,7 @@ async function startServer() {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
     const posts = dbAll(`
-      SELECT p.id, p.title, p.content, p.created_at, p.status,
+      SELECT p.id, p.title, p.content, p.created_at, p.tags, p.status, p.tags,
              u.username,
              CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as nickname,
              u.avatar
@@ -418,7 +453,7 @@ async function startServer() {
   // GET /api/posts/:id — single post, respects status, records view
   app.get('/api/posts/:id', (req, res) => {
     const post = dbGet(`
-      SELECT p.*, u.username, u.avatar, u.nickname
+      SELECT p.id, p.title, p.content, p.created_at, p.status, p.tags, u.username, u.avatar, u.nickname
       FROM posts p JOIN users u ON p.user_id = u.id
       WHERE p.id = ?
     `, [req.params.id]);
@@ -579,7 +614,7 @@ async function startServer() {
   // GET /api/admin/posts — all posts with any status
   app.get('/api/admin/posts', requireAdmin, (req, res) => {
     const posts = dbAll(`
-      SELECT p.id, p.title, p.content, p.created_at, p.status,
+      SELECT p.id, p.title, p.content, p.created_at, p.status, p.tags,
              u.username,
              CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as nickname
       FROM posts p
@@ -797,6 +832,64 @@ async function startServer() {
       db.run('UPDATE users SET avatar=? WHERE id=?', [url, req.user.id]);
       saveDb();
       res.json({ avatar: url });
+    });
+  });
+
+  // GET /api/danmaku — fetch recent danmaku (newest 60, or since a given id)
+  app.get('/api/danmaku', (req, res) => {
+    const since = parseInt(req.query.since) || 0;
+    const rows = since
+      ? dbAll(`
+          SELECT d.id, d.content, d.color, d.created_at,
+                 COALESCE(u.nickname, u.username) as display_name
+          FROM danmaku d
+          JOIN users u ON d.user_id = u.id
+          WHERE d.id > ?
+          ORDER BY d.id ASC
+          LIMIT 20
+        `, [since])
+      : dbAll(`
+          SELECT d.id, d.content, d.color, d.created_at,
+                 COALESCE(u.nickname, u.username) as display_name
+          FROM danmaku d
+          JOIN users u ON d.user_id = u.id
+          ORDER BY d.created_at DESC
+          LIMIT 60
+        `).reverse();
+    res.json(rows);
+  });
+
+  // POST /api/danmaku — send a danmaku (requires login)
+  app.post('/api/danmaku', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号不能发弹幕' });
+    const { content, color } = req.body;
+    if (!content || !content.trim())
+      return res.status(400).json({ error: '弹幕内容不能为空' });
+    if (content.trim().length > 40)
+      return res.status(400).json({ error: '弹幕不能超过 40 字' });
+
+    // Rate limit: max 1 danmaku per 5 seconds per user
+    const recent = dbGet(
+      "SELECT id FROM danmaku WHERE user_id=? AND created_at > datetime('now','-5 seconds')",
+      [req.user.id]
+    );
+    if (recent) return res.status(429).json({ error: '发送太频繁，请稍候' });
+
+    const safeColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#c8dff7';
+    db.run(
+      'INSERT INTO danmaku (user_id, content, color) VALUES (?, ?, ?)',
+      [req.user.id, content.trim(), safeColor]
+    );
+    const { id } = dbGet('SELECT last_insert_rowid() as id');
+    saveDb();
+
+    const user = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+    res.status(201).json({
+      id,
+      content: content.trim(),
+      color: safeColor,
+      display_name: user.nickname || user.username,
+      created_at: new Date().toISOString()
     });
   });
 

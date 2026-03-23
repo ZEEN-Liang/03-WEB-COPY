@@ -263,6 +263,11 @@
 
   .footer-meta { font-size: 12px; font-weight: 300; color: var(--ink-faint); text-align: right; }
 
+  /* ── Tag pills (colors inline) ── */
+  .article-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .article-tag-pill { transition: opacity 0.15s !important; }
+  .article-tag-pill:hover { opacity: 0.75; }
+
   /* ── Article stats bar ── */
   .article-stats {
     display: flex; align-items: center; gap: 20px;
@@ -509,6 +514,12 @@
     .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     .article-footer { flex-direction: column; align-items: flex-start; }
   }
+
+  .char-lan {
+    font-style: normal;
+    color: #6ab4e8;
+    text-shadow: 0 0 12px rgba(74,143,196,0.7), 0 0 24px rgba(74,143,196,0.3);
+  }
 </style>
 </head>
 <body>
@@ -516,7 +527,7 @@
 
 <!-- Nav -->
 <nav class="nav">
-  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <a href="/cover" class="nav-logo">风<em class="char-lan">蓝</em>轻音部</a>
   <div class="nav-links">
     <a href="/forum.html" class="nav-link">广 场</a>
     <a href="/post.html" class="nav-link">投 稿</a>
@@ -549,8 +560,8 @@ if (token && username) {
   `;
 } else {
   navRight.innerHTML = `
-    <a href="/" class="nav-btn">登录</a>
-    <a href="/" class="nav-btn nav-btn-primary">注册</a>
+    <a href="/login" class="nav-btn">登录</a>
+    <a href="/login" class="nav-btn nav-btn-primary">注册</a>
   `;
 }
 
@@ -691,6 +702,12 @@ async function loadArticle() {
 
           <h1 class="article-title">${post.title}</h1>
 
+          ${post.tags ? `<div class="article-tags">
+            ${post.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t =>
+              tagPillHtml(t, { tagName: 'a', href: '/forum.html?tag=' + encodeURIComponent(t), extraCls: 'article-tag-pill' })
+            ).join('')}
+          </div>` : ''}
+
           <div class="article-rule">
             <div class="article-rule-line"></div>
             <div class="article-rule-mark">✦</div>
@@ -760,6 +777,57 @@ function avatarHtml(username, avatarUrl, size = 36) {
   return `<div style="${style}">${letter}</div>`;
 }
 
+
+// ── Tag color system ─────────────────────────────────────────
+// Hash tag string to a stable index, pick from a curated palette
+const TAG_PALETTE = [
+  { bg: 'rgba(192,57,43,0.08)',  border: 'rgba(192,57,43,0.28)',  text: '#a93226' },  // red
+  { bg: 'rgba(41,128,185,0.08)', border: 'rgba(41,128,185,0.28)', text: '#1a6fa5' },  // blue
+  { bg: 'rgba(39,174,96,0.08)',  border: 'rgba(39,174,96,0.28)',  text: '#1e8449' },  // green
+  { bg: 'rgba(142,68,173,0.08)', border: 'rgba(142,68,173,0.28)', text: '#7d3c98' },  // purple
+  { bg: 'rgba(230,126,34,0.08)', border: 'rgba(230,126,34,0.28)', text: '#ca6f1e' },  // orange
+  { bg: 'rgba(22,160,133,0.08)', border: 'rgba(22,160,133,0.28)', text: '#148a72' },  // teal
+  { bg: 'rgba(184,150,62,0.08)', border: 'rgba(184,150,62,0.28)', text: '#9a7d0a' },  // gold
+  { bg: 'rgba(231,76,60,0.08)',  border: 'rgba(231,76,60,0.28)',  text: '#c0392b' },  // crimson
+  { bg: 'rgba(52,152,219,0.08)', border: 'rgba(52,152,219,0.28)', text: '#1a7ab5' },  // sky
+  { bg: 'rgba(26,188,156,0.08)', border: 'rgba(26,188,156,0.28)', text: '#17a589' },  // mint
+  { bg: 'rgba(243,156,18,0.08)', border: 'rgba(243,156,18,0.28)', text: '#b7770d' },  // amber
+  { bg: 'rgba(155,89,182,0.08)', border: 'rgba(155,89,182,0.28)', text: '#8e44ad' },  // violet
+];
+
+function tagHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(h) % TAG_PALETTE.length;
+}
+
+function tagColor(tag) {
+  return TAG_PALETTE[tagHash(tag)];
+}
+
+function tagPillHtml(tag, opts = {}) {
+  const col      = tagColor(tag);
+  const active   = opts.active   || false;
+  const onclick  = opts.onclick  ? `onclick="${opts.onclick}"` : '';
+  const href     = opts.href     ? `href="${opts.href}"` : '';
+  const tagName  = opts.tagName  || 'span';
+  const extraCls = opts.extraCls || '';
+
+  const activeBg   = col.text;
+  const activeText = '#fff';
+  const bg         = active ? activeBg  : col.bg;
+  const text       = active ? activeText : col.text;
+  const border     = active ? activeBg  : col.border;
+
+  const style = `background:${bg};border:1px solid ${border};color:${text};` +
+    `display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:400;` +
+    `letter-spacing:0.04em;padding:2px 9px;border-radius:20px;cursor:pointer;transition:all 0.15s;`;
+
+  return `<${tagName} style="${style}" ${href} ${onclick} class="${extraCls}">#${tag}</${tagName}>`;
+}
+
 function escapeHtml(str) {
   return str
     .replace(/&/g, '&amp;')
@@ -826,7 +894,7 @@ function buildCommentsSection(postId) {
         <div class="comment-input-wrap">
           <textarea class="comment-textarea" placeholder="登录后才能发表评论" disabled></textarea>
           <div class="comment-form-footer">
-            <div class="comment-hint">请 <a href="/">登录</a> 后发表评论</div>
+            <div class="comment-hint">请 <a href="/login">登录</a> 后发表评论</div>
           </div>
         </div>
       </div>`;

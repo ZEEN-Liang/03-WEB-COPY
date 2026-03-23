@@ -355,13 +355,19 @@
     .profile-card { grid-template-columns: 1fr; gap: 20px; padding: 28px 20px; }
     .profile-top { flex-direction: column; }
   }
+
+  .char-lan {
+    font-style: normal;
+    color: #6ab4e8;
+    text-shadow: 0 0 12px rgba(74,143,196,0.7), 0 0 24px rgba(74,143,196,0.3);
+  }
 </style>
 </head>
 <body>
 <div class="masthead"></div>
 
 <nav class="nav">
-  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <a href="/cover" class="nav-logo">风<em class="char-lan">蓝</em>轻音部</a>
   <div class="nav-links">
     <a href="/forum.html" class="nav-link">广 场</a>
     <a href="/post.html"  class="nav-link">投 稿</a>
@@ -460,8 +466,8 @@ if (token && myName) {
   `;
 } else {
   navRight.innerHTML = `
-    <a href="/" class="nav-btn">登录</a>
-    <a href="/" class="nav-btn nav-btn-primary">注册</a>
+    <a href="/login" class="nav-btn">登录</a>
+    <a href="/login" class="nav-btn nav-btn-primary">注册</a>
   `;
 }
 function logout() { localStorage.clear(); window.location.href = '/'; }

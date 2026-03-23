@@ -27,6 +27,7 @@ async function migrate() {
     { sql: "ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL", name: "comments.parent_id" },
     { sql: "ALTER TABLE comments ADD COLUMN reply_to TEXT DEFAULT NULL",    name: "comments.reply_to" },
     { sql: "ALTER TABLE posts ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'", name: "posts.status" },
+    { sql: "ALTER TABLE posts ADD COLUMN tags   TEXT DEFAULT NULL",                   name: "posts.tags" },
   ];
 
   let changed = 0;
@@ -39,6 +40,18 @@ async function migrate() {
       console.log(`— 已存在: ${name}`);
     }
   }
+
+  // Create danmaku table if not exists
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS danmaku (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#c8dff7',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    console.log('✅ danmaku 表已创建/确认');
+  } catch(e) { console.log('— danmaku:', e.message); }
 
   // 验证最终结构
   console.log('\n📋 当前 users 表结构:');

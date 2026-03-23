@@ -101,8 +101,78 @@
   /* ── Page ── */
   .page {
     position: relative; z-index: 1;
-    max-width: 900px; margin: 0 auto;
-    padding: 52px 24px 80px;
+    max-width: 1160px; margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  .page-body {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 36px;
+    align-items: start;
+  }
+
+  .page-main { min-width: 0; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: sticky; top: 72px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .sidebar-card {
+    background: var(--card-bg); border: 1px solid var(--rule);
+    border-radius: 6px; overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .sidebar-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-muted);
+  }
+  .sidebar-head-icon { font-size: 13px; }
+
+  /* Announcement */
+  .sidebar-announce {
+    padding: 14px 16px;
+    font-size: 13px; font-weight: 300; color: var(--ink-muted);
+    line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+  }
+  .sidebar-announce:empty::before { content: '暂无公告'; color: var(--ink-faint); font-style: italic; }
+
+  /* Hot / Latest posts */
+  .sidebar-post-list { display: flex; flex-direction: column; }
+  .sidebar-post-item {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 11px 16px; border-bottom: 1px solid var(--rule);
+    cursor: pointer; transition: background 0.15s; text-decoration: none; color: inherit;
+  }
+  .sidebar-post-item:last-child { border-bottom: none; }
+  .sidebar-post-item:hover { background: var(--paper); }
+  .sidebar-post-title {
+    font-size: 13px; font-weight: 400; color: var(--ink); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    transition: color 0.15s;
+  }
+  .sidebar-post-item:hover .sidebar-post-title { color: var(--accent); }
+  .sidebar-post-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 300; color: var(--ink-faint);
+  }
+  .sidebar-post-stat { display: flex; align-items: center; gap: 3px; }
+
+  /* Tag cloud */
+  .sidebar-tags {
+    padding: 12px 16px 14px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+
+  @media (max-width: 860px) {
+    .page-body { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
   }
 
   /* ── Page header ── */
@@ -233,6 +303,10 @@
     transition: color 0.2s, transform 0.2s;
   }
   .post-item:hover .post-arrow { color: var(--accent); transform: translateX(4px); }
+
+  /* ── Tag pills (colors handled inline via tagPillHtml) ── */
+  .post-tag-pill { transition: opacity 0.15s; }
+  .post-tag-pill:hover { opacity: 0.8; }
 
   /* ── Sort bar ── */
   .sort-bar {
@@ -379,12 +453,113 @@
   @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp  { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 
+  /* ── Tag search ── */
+  .tag-search-wrap {
+    position: relative; margin-bottom: 16px;
+  }
+
+  .tag-search-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    background: var(--card-bg); border: 1.5px solid var(--rule);
+    border-radius: 6px; cursor: text;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .tag-search-bar.open {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(192,57,43,0.07);
+    border-radius: 6px 6px 0 0;
+  }
+
+  .tag-search-icon { font-size: 14px; color: var(--ink-faint); flex-shrink: 0; }
+
+  .tag-search-chips { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; align-items: center; }
+
+  .tag-search-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; padding: 2px 8px; border-radius: 20px;
+    background: var(--accent); color: #fff; border: none;
+    font-family: inherit; font-weight: 400;
+  }
+  .tag-chip-x {
+    cursor: pointer; opacity: 0.75; border: none; background: none;
+    color: #fff; font-size: 13px; line-height: 1; padding: 0;
+    transition: opacity 0.15s;
+  }
+  .tag-chip-x:hover { opacity: 1; }
+
+  .tag-search-input {
+    border: none; outline: none; font-family: inherit; font-size: 13px;
+    font-weight: 300; color: var(--ink); background: transparent;
+    min-width: 120px; flex: 1;
+  }
+  .tag-search-input::placeholder { color: var(--ink-faint); }
+
+  .tag-search-clear {
+    font-size: 12px; color: var(--ink-faint); background: none; border: none;
+    cursor: pointer; padding: 2px 6px; border-radius: 3px; flex-shrink: 0;
+    transition: color 0.15s; display: none;
+  }
+  .tag-search-clear.show { display: block; }
+  .tag-search-clear:hover { color: var(--accent); }
+
+  /* Dropdown */
+  .tag-dropdown {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+    background: var(--card-bg); border: 1.5px solid var(--accent);
+    border-top: none; border-radius: 0 0 6px 6px;
+    box-shadow: 0 8px 24px rgba(26,24,20,0.1);
+    overflow: hidden;
+  }
+  .tag-dropdown.open { display: block; animation: fadeUp 0.15s ease; }
+
+  .tag-dropdown-section {
+    padding: 10px 14px 6px;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+  }
+  .tag-dropdown-section:not(:first-child) { border-top: 1px solid var(--rule); }
+
+  .tag-dropdown-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px 14px 12px;
+  }
+
+  .tag-suggestion {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; padding: 3px 10px; border-radius: 20px; cursor: pointer;
+    background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.2);
+    color: var(--accent); transition: all 0.15s; font-family: inherit;
+  }
+  .tag-suggestion:hover { background: rgba(192,57,43,0.15); border-color: var(--accent); }
+  .tag-suggestion.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tag-suggestion-count {
+    font-size: 10px; opacity: 0.65;
+  }
+
+  .tag-dropdown-empty {
+    padding: 14px; font-size: 13px; color: var(--ink-faint);
+    font-weight: 300; text-align: center;
+  }
+
+  .tag-search-hint {
+    font-size: 11px; color: var(--ink-faint); padding: 8px 14px;
+    border-top: 1px solid var(--rule); font-weight: 300;
+  }
+
   @media (max-width: 600px) {
     .nav { padding: 0 16px; }
     .nav-user { display: none; }
     .page { padding: 32px 16px 60px; }
     .modal-header, .modal-body { padding-left: 20px; padding-right: 20px; }
     .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+
+  .char-lan {
+    font-style: normal;
+    color: #6ab4e8;
+    text-shadow: 0 0 12px rgba(74,143,196,0.7), 0 0 24px rgba(74,143,196,0.3);
   }
 </style>
 </head>
@@ -393,7 +568,7 @@
 
 <!-- Nav -->
 <nav class="nav">
-  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <a href="/cover" class="nav-logo">风<em class="char-lan">蓝</em>轻音部</a>
   <div class="nav-links">
     <a href="/forum.html" class="nav-link active">广 场</a>
     <a href="/post.html" class="nav-link" id="nav-post-link">投 稿</a>
@@ -412,6 +587,9 @@
     </div>
     <div class="post-count" id="post-count"></div>
   </div>
+
+<div class="page-body">
+<div class="page-main">
 
   <!-- Sort bar -->
   <div class="sort-bar">
@@ -432,13 +610,66 @@
     <div class="sort-info" id="sort-info"></div>
   </div>
 
+  <!-- Tag search -->
+  <div class="tag-search-wrap" id="tag-search-wrap">
+    <div class="tag-search-bar" id="tag-search-bar" onclick="focusTagSearch()">
+      <span class="tag-search-icon">🏷</span>
+      <div class="tag-search-chips" id="tag-search-chips">
+        <input class="tag-search-input" id="tag-search-input"
+               placeholder="按标签筛选…" autocomplete="off">
+      </div>
+      <button class="tag-search-clear" id="tag-search-clear" onclick="clearAllTagFilters(event)">✕ 清除</button>
+    </div>
+    <div class="tag-dropdown" id="tag-dropdown">
+      <div class="tag-dropdown-section">热门标签</div>
+      <div class="tag-dropdown-list" id="hot-tag-list">加载中…</div>
+      <div id="search-tag-section" style="display:none">
+        <div class="tag-dropdown-section">搜索结果</div>
+        <div class="tag-dropdown-list" id="search-tag-list"></div>
+      </div>
+      <div class="tag-search-hint">输入标签名后按 Enter 添加筛选 · 搜索仅用于筛选，不写入数据库</div>
+    </div>
+  </div>
+
   <div id="list-area">
     <div class="state-msg" id="loading-msg">
       <div class="icon">◌</div>
       <p>正在加载...</p>
     </div>
   </div>
-</div>
+
+</div><!-- /page-main -->
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+
+  <!-- 公告 -->
+  <div class="sidebar-card" style="animation-delay:0.05s">
+    <div class="sidebar-head"><span class="sidebar-head-icon">📢</span>公告</div>
+    <div class="sidebar-announce" id="sidebar-announce">欢迎来到论坛广场！在这里分享你的音乐、文章与创作，与社区共鸣。</div>
+  </div>
+
+  <!-- 热门文章 -->
+  <div class="sidebar-card" style="animation-delay:0.1s">
+    <div class="sidebar-head"><span class="sidebar-head-icon">🔥</span>热门文章</div>
+    <div class="sidebar-post-list" id="sidebar-hot"></div>
+  </div>
+
+  <!-- 最新发布 -->
+  <div class="sidebar-card" style="animation-delay:0.15s">
+    <div class="sidebar-head"><span class="sidebar-head-icon">🕐</span>最新发布</div>
+    <div class="sidebar-post-list" id="sidebar-latest"></div>
+  </div>
+
+  <!-- Tag 推荐 -->
+  <div class="sidebar-card" style="animation-delay:0.2s">
+    <div class="sidebar-head"><span class="sidebar-head-icon">🏷</span>标签推荐</div>
+    <div class="sidebar-tags" id="sidebar-tags"><span style="font-size:12px;color:var(--ink-faint);font-weight:300">加载中…</span></div>
+  </div>
+
+</aside>
+</div><!-- /page-body -->
+</div><!-- /page -->
 
 <!-- Modal -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
@@ -463,6 +694,172 @@
 </div>
 
 <script>
+// ── Tag filter state (multi-select set) ─────────────────────
+let activeTagFilters = new Set();
+let allPostsCache    = [];   // cache for hot tag computation
+
+// -- Compute hot tags from cached posts (top 10 by count) ---
+function computeHotTags(posts) {
+  const count = {};
+  posts.forEach(p => {
+    if (!p.tags) return;
+    p.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => {
+      count[t] = (count[t] || 0) + 1;
+    });
+  });
+  return Object.entries(count)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+}
+
+function renderHotTags() {
+  const el = document.getElementById('hot-tag-list');
+  if (!el) return;
+  const hot = computeHotTags(allPostsCache);
+  if (!hot.length) { el.innerHTML = '<span style="font-size:12px;color:var(--ink-faint);font-weight:300">暂无标签数据</span>'; return; }
+  el.innerHTML = hot.map(([tag, n]) => {
+    const col  = tagColor(tag);
+    const isOn = activeTagFilters.has(tag);
+    const bg   = isOn ? col.text : col.bg;
+    const txt  = isOn ? '#fff'   : col.text;
+    const bdr  = isOn ? col.text : col.border;
+    return `<button style="background:${bg};border:1px solid ${bdr};color:${txt};` +
+      `display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 10px;` +
+      `border-radius:20px;cursor:pointer;transition:all 0.15s;font-family:inherit;` +
+      `letter-spacing:0.04em;"
+       onclick="toggleTagFilter('${tag.replace(/'/g,"\\'")}')">
+       #${tag}<span style="font-size:10px;opacity:0.65">${n}</span>
+    </button>`;
+  }).join('');
+}
+
+function renderSearchTags(query) {
+  const section = document.getElementById('search-tag-section');
+  const list    = document.getElementById('search-tag-list');
+  if (!query.trim()) { section.style.display = 'none'; return; }
+  // Find matching tags from all posts
+  const q = query.trim().toLowerCase();
+  const count = {};
+  allPostsCache.forEach(p => {
+    if (!p.tags) return;
+    p.tags.split(',').map(t => t.trim()).filter(Boolean)
+      .filter(t => t.toLowerCase().includes(q))
+      .forEach(t => { count[t] = (count[t] || 0) + 1; });
+  });
+  const matches = Object.entries(count).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  section.style.display = 'block';
+  if (!matches.length) {
+    // Show "add this tag as filter" option even if not in DB
+    const _q = query.trim();
+    const _col = tagColor(_q);
+    list.innerHTML = `<button style="background:${_col.bg};border:1px solid ${_col.border};color:${_col.text};` +
+      `display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 10px;` +
+      `border-radius:20px;cursor:pointer;transition:all 0.15s;font-family:inherit;letter-spacing:0.04em;"
+       onclick="toggleTagFilter('${_q.replace(/'/g,"\\'")}')">
+       #${_q} <span style="font-size:10px;opacity:0.5">搜索</span>
+    </button>`;
+  } else {
+    list.innerHTML = matches.map(([tag, n]) => {
+      const col  = tagColor(tag);
+      const isOn = activeTagFilters.has(tag);
+      const bg   = isOn ? col.text : col.bg;
+      const txt  = isOn ? '#fff'   : col.text;
+      const bdr  = isOn ? col.text : col.border;
+      return `<button style="background:${bg};border:1px solid ${bdr};color:${txt};` +
+        `display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 10px;` +
+        `border-radius:20px;cursor:pointer;transition:all 0.15s;font-family:inherit;` +
+        `letter-spacing:0.04em;"
+         onclick="toggleTagFilter('${tag.replace(/'/g,"\\'")}')">
+         #${tag}<span style="font-size:10px;opacity:0.65">${n}</span>
+      </button>`;
+    }).join('');
+  }
+}
+
+function renderSearchChips() {
+  const chips = document.getElementById('tag-search-chips');
+  const input = document.getElementById('tag-search-input');
+  chips.querySelectorAll('.tag-search-chip').forEach(el => el.remove());
+  activeTagFilters.forEach(tag => {
+    const chip = document.createElement('div');
+    chip.className = 'tag-search-chip';
+    chip.innerHTML = `#${tag}<button class="tag-chip-x" onclick="toggleTagFilter('${tag.replace(/'/g,"\\'")}')">×</button>`;
+    chips.insertBefore(chip, input);
+  });
+  const clearBtn = document.getElementById('tag-search-clear');
+  if (clearBtn) clearBtn.classList.toggle('show', activeTagFilters.size > 0);
+}
+
+function toggleTagFilter(tag) {
+  if (activeTagFilters.has(tag)) activeTagFilters.delete(tag);
+  else activeTagFilters.add(tag);
+  renderSearchChips();
+  renderHotTags();
+  renderSearchTags(document.getElementById('tag-search-input')?.value || '');
+  loadPosts();
+}
+
+function clearAllTagFilters(e) {
+  if (e) e.stopPropagation();
+  activeTagFilters.clear();
+  renderSearchChips();
+  renderHotTags();
+  closeTagDropdown();
+  loadPosts();
+}
+
+function focusTagSearch() {
+  document.getElementById('tag-search-input').focus();
+  openTagDropdown();
+}
+
+function openTagDropdown() {
+  document.getElementById('tag-search-bar').classList.add('open');
+  document.getElementById('tag-dropdown').classList.add('open');
+}
+
+function closeTagDropdown() {
+  document.getElementById('tag-search-bar').classList.remove('open');
+  document.getElementById('tag-dropdown').classList.remove('open');
+  document.getElementById('search-tag-section').style.display = 'none';
+  document.getElementById('tag-search-input').value = '';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!document.getElementById('tag-search-wrap')?.contains(e.target)) {
+    closeTagDropdown();
+  }
+});
+
+// Tag search input events
+window.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('tag-search-input');
+  if (!input) return;
+
+  input.addEventListener('focus', () => openTagDropdown());
+  input.addEventListener('input', () => renderSearchTags(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const val = input.value.trim();
+      if (val) { toggleTagFilter(val); input.value = ''; renderSearchTags(''); }
+    } else if (e.key === 'Escape') {
+      closeTagDropdown();
+    } else if (e.key === 'Backspace' && !input.value && activeTagFilters.size) {
+      const last = [...activeTagFilters].pop();
+      toggleTagFilter(last);
+    }
+  });
+
+  // Handle ?tag= URL param on load
+  const urlTag = new URLSearchParams(location.search).get('tag');
+  if (urlTag) { activeTagFilters.add(urlTag); renderSearchChips(); }
+});
+
+// Legacy compat for article.html tag links (single tag)
+function setTagFilter(tag) { toggleTagFilter(tag); }
+function clearTagFilter()  { clearAllTagFilters(); }
+
 // ── Sort state ──────────────────────────────────────────────
 let currentSort = 'latest';
 
@@ -489,8 +886,8 @@ if (token && username) {
   `;
 } else {
   navRight.innerHTML = `
-    <a href="/" class="nav-btn nav-btn-outline">登录</a>
-    <a href="/" class="nav-btn nav-btn-primary">注册</a>
+    <a href="/login" class="nav-btn nav-btn-outline">登录</a>
+    <a href="/login" class="nav-btn nav-btn-primary">注册</a>
   `;
   // Hide post link for guests (optional — they'll be redirected anyway)
 }
@@ -514,6 +911,57 @@ function avatarHtml(username, avatarUrl, size = 36) {
   return `<div style="${style}">${letter}</div>`;
 }
 
+
+// ── Tag color system ─────────────────────────────────────────
+// Hash tag string to a stable index, pick from a curated palette
+const TAG_PALETTE = [
+  { bg: 'rgba(192,57,43,0.08)',  border: 'rgba(192,57,43,0.28)',  text: '#a93226' },  // red
+  { bg: 'rgba(41,128,185,0.08)', border: 'rgba(41,128,185,0.28)', text: '#1a6fa5' },  // blue
+  { bg: 'rgba(39,174,96,0.08)',  border: 'rgba(39,174,96,0.28)',  text: '#1e8449' },  // green
+  { bg: 'rgba(142,68,173,0.08)', border: 'rgba(142,68,173,0.28)', text: '#7d3c98' },  // purple
+  { bg: 'rgba(230,126,34,0.08)', border: 'rgba(230,126,34,0.28)', text: '#ca6f1e' },  // orange
+  { bg: 'rgba(22,160,133,0.08)', border: 'rgba(22,160,133,0.28)', text: '#148a72' },  // teal
+  { bg: 'rgba(184,150,62,0.08)', border: 'rgba(184,150,62,0.28)', text: '#9a7d0a' },  // gold
+  { bg: 'rgba(231,76,60,0.08)',  border: 'rgba(231,76,60,0.28)',  text: '#c0392b' },  // crimson
+  { bg: 'rgba(52,152,219,0.08)', border: 'rgba(52,152,219,0.28)', text: '#1a7ab5' },  // sky
+  { bg: 'rgba(26,188,156,0.08)', border: 'rgba(26,188,156,0.28)', text: '#17a589' },  // mint
+  { bg: 'rgba(243,156,18,0.08)', border: 'rgba(243,156,18,0.28)', text: '#b7770d' },  // amber
+  { bg: 'rgba(155,89,182,0.08)', border: 'rgba(155,89,182,0.28)', text: '#8e44ad' },  // violet
+];
+
+function tagHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(h) % TAG_PALETTE.length;
+}
+
+function tagColor(tag) {
+  return TAG_PALETTE[tagHash(tag)];
+}
+
+function tagPillHtml(tag, opts = {}) {
+  const col      = tagColor(tag);
+  const active   = opts.active   || false;
+  const onclick  = opts.onclick  ? `onclick="${opts.onclick}"` : '';
+  const href     = opts.href     ? `href="${opts.href}"` : '';
+  const tagName  = opts.tagName  || 'span';
+  const extraCls = opts.extraCls || '';
+
+  const activeBg   = col.text;
+  const activeText = '#fff';
+  const bg         = active ? activeBg  : col.bg;
+  const text       = active ? activeText : col.text;
+  const border     = active ? activeBg  : col.border;
+
+  const style = `background:${bg};border:1px solid ${border};color:${text};` +
+    `display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:400;` +
+    `letter-spacing:0.04em;padding:2px 9px;border-radius:20px;cursor:pointer;transition:all 0.15s;`;
+
+  return `<${tagName} style="${style}" ${href} ${onclick} class="${extraCls}">#${tag}</${tagName}>`;
+}
+
 function formatDate(str) {
   const d = new Date(str.replace(' ', 'T') + 'Z');
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -527,6 +975,50 @@ function formatSize(bytes) {
 
 function isImage(mime) { return mime && mime.startsWith('image/'); }
 
+// ── Sidebar ──────────────────────────────────────────────────
+function renderSidebarPosts(elId, posts, statKey, statIcon) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!posts.length) {
+    el.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--ink-faint);font-weight:300">暂无数据</div>';
+    return;
+  }
+  el.innerHTML = posts.map((p, i) => `
+    <div class="sidebar-post-item" onclick="window.location.href='/article.html?id=${p.id}'"
+         style="animation-delay:${0.05 + i * 0.04}s">
+      <div class="sidebar-post-title">${p.title}</div>
+      <div class="sidebar-post-meta">
+        <span>${p.nickname || p.username}</span>
+        <span>·</span>
+        <span class="sidebar-post-stat">${statIcon} ${p[statKey] || 0}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderSidebarTags(posts) {
+  const el = document.getElementById('sidebar-tags');
+  if (!el) return;
+  const hot = computeHotTags(posts).slice(0, 10);
+  if (!hot.length) { el.innerHTML = '<span style="font-size:12px;color:var(--ink-faint);font-weight:300">暂无标签</span>'; return; }
+  el.innerHTML = hot.map(([tag]) =>
+    tagPillHtml(tag, {
+      onclick: "toggleTagFilter('" + tag.replace(/'/g, "\'") + "')",
+      extraCls: 'post-tag-pill'
+    })
+  ).join('');
+}
+
+function renderSidebar(posts) {
+  // Hot: top 5 by views
+  const hot    = [...posts].sort((a,b) => (b.view_count||0) - (a.view_count||0)).slice(0, 5);
+  // Latest: top 5 by date
+  const latest = [...posts].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+
+  renderSidebarPosts('sidebar-hot',    hot,    'view_count', '👁');
+  renderSidebarPosts('sidebar-latest', latest, 'comment_count', '💬');
+  renderSidebarTags(posts);
+}
+
 // ── Load posts ───────────────────────────────────────────────
 async function loadPosts() {
   const area = document.getElementById('list-area');
@@ -535,7 +1027,7 @@ async function loadPosts() {
     const res = await fetch('/api/posts?sort=' + currentSort);
     const posts = await res.json();
 
-    if (!posts.length) {
+    if (!posts.length && !activeTagFilters.size) {
       area.innerHTML = `
         <div class="state-msg">
           <div class="icon">✦</div>
@@ -545,14 +1037,34 @@ async function loadPosts() {
       return;
     }
 
+    // Cache posts for hot tag computation
+    allPostsCache = posts;
+    renderHotTags();
+    renderSidebar(posts);
+
+    // Filter by active tags (AND logic: post must have ALL selected tags)
+    const filtered = activeTagFilters.size
+      ? posts.filter(p => {
+          if (!p.tags) return false;
+          const postTags = p.tags.split(',').map(t => t.trim());
+          return [...activeTagFilters].every(ft => postTags.includes(ft));
+        })
+      : posts;
+
     const sortLabel = { latest:'最新', views:'最多浏览', likes:'最多点赞', comments:'最多评论' };
-    document.getElementById('post-count').textContent = `共 ${posts.length} 篇`;
-    document.getElementById('sort-info').textContent  = posts.length ? `按${sortLabel[currentSort]}排列` : '';
+    document.getElementById('post-count').textContent = `共 ${filtered.length} 篇`;
+    document.getElementById('sort-info').textContent  = filtered.length ? `按${sortLabel[currentSort]}排列` : '';
+
+    if (!filtered.length) {
+      const tagList = [...activeTagFilters].map(t=>`#${t}`).join(' + ');
+      area.innerHTML = `<div class="state-msg"><div class="icon">✦</div><p>没有找到标签为 ${tagList} 的投稿</p></div>`;
+      return;
+    }
 
     const list = document.createElement('div');
     list.className = 'post-list';
 
-    posts.forEach((p, i) => {
+    filtered.forEach((p, i) => {
       const item = document.createElement('div');
       item.className = 'post-item';
       item.style.animationDelay = (i * 0.04) + 's';
@@ -576,6 +1088,11 @@ async function loadPosts() {
           </div>
           <div class="post-title">${p.title}</div>
           ${excerpt ? `<div class="post-excerpt">${excerpt}</div>` : ''}
+          ${p.tags ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
+            ${p.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t =>
+              tagPillHtml(t, { active: activeTagFilters.has(t), onclick: "event.stopPropagation();toggleTagFilter('" + t.replace(/'/g,"\'") + "')", extraCls: 'post-tag-pill' })
+            ).join('')}
+          </div>` : ''}
           <div class="post-footer">
             ${hasFiles ? `<span class="post-tag has-files">📎 ${p.attachment_count} 个附件</span>` : ''}
             <span class="post-stat ${currentSort==='views'    ? 'highlight' : ''}"><span class="post-stat-icon">👁</span>${p.view_count    || 0}</span>
