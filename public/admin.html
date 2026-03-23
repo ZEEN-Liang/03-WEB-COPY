@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 · 论坛广场</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=DM+Serif+Display&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1814; --ink-muted: #5c5850; --ink-faint: #a8a49e;
+    --paper: #f5f2ec; --rule: #d8d3ca; --accent: #c0392b;
+    --gold: #b8963e; --card-bg: #faf8f4;
+    --green: #27ae60; --amber: #e67e22; --red: #c0392b; --blue: #2980b9;
+  }
+
+  html, body { min-height: 100%; font-family: 'Noto Sans SC', sans-serif; background: var(--paper); color: var(--ink); }
+
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.025) 28px, rgba(26,24,20,0.025) 29px);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Masthead ── */
+  .masthead { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--accent); z-index: 100; }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky; top: 4px; z-index: 90;
+    background: var(--ink); color: #f5f2ec;
+    display: flex; align-items: stretch;
+    padding: 0 48px; height: 56px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .nav-logo {
+    font-family: 'DM Serif Display', serif; font-size: 20px;
+    color: #f5f2ec; text-decoration: none;
+    display: flex; align-items: center; margin-right: 36px;
+  }
+  .nav-logo em { font-style: italic; color: var(--accent); }
+  .nav-badge {
+    margin-left: 8px; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.1em; padding: 2px 7px; border-radius: 2px;
+    background: var(--accent); color: #fff; font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .nav-links { display: flex; align-items: stretch; flex: 1; }
+  .nav-link {
+    display: flex; align-items: center; padding: 0 16px;
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    text-decoration: none; transition: color 0.2s;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .nav-link:hover { color: rgba(255,255,255,0.85); }
+  .nav-link.active { color: #fff; border-bottom-color: var(--accent); }
+
+  .nav-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .nav-user { font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.5); }
+  .nav-user span { color: #fff; font-weight: 500; }
+  .nav-btn {
+    font-size: 12px; padding: 5px 14px; border-radius: 3px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6);
+    background: none; font-family: inherit; transition: all 0.2s;
+  }
+  .nav-btn:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+  /* ── Page ── */
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 40px; }
+
+  .stat-card {
+    background: var(--card-bg); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 20px 20px 16px; transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--ink-faint); }
+  .stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 10px; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--ink); line-height: 1; }
+  .stat-value.pending   { color: var(--amber); }
+  .stat-value.published { color: var(--green); }
+  .stat-value.hidden    { color: var(--ink-faint); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+  }
+
+  .filter-tabs { display: flex; gap: 0; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .filter-tab {
+    padding: 7px 18px; font-size: 13px; font-weight: 400;
+    color: var(--ink-muted); background: var(--card-bg); border: none;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+    border-right: 1px solid var(--rule);
+  }
+  .filter-tab:last-child { border-right: none; }
+  .filter-tab:hover { background: var(--paper); }
+  .filter-tab.active { background: var(--ink); color: #f5f2ec; }
+
+  .toolbar-right { display: flex; align-items: center; gap: 10px; }
+  .count-label { font-size: 12px; color: var(--ink-faint); font-weight: 300; }
+
+  /* ── Table ── */
+  .table-wrap { background: var(--card-bg); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead tr { background: var(--paper); border-bottom: 1.5px solid var(--rule); }
+  th {
+    padding: 12px 16px; text-align: left;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--rule);
+    transition: background 0.12s;
+    animation: fadeUp 0.3s ease both;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--paper); }
+
+  td { padding: 14px 16px; vertical-align: middle; }
+
+  .td-title { max-width: 320px; }
+  .post-title-text {
+    font-size: 14px; font-weight: 400; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 300px; display: block;
+    cursor: pointer; transition: color 0.15s;
+  }
+  .post-title-text:hover { color: var(--accent); }
+  .post-meta-text { font-size: 12px; color: var(--ink-faint); margin-top: 3px; font-weight: 300; }
+
+  /* Status badge */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.06em; white-space: nowrap;
+  }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .badge.pending   { background: rgba(230,126,34,0.1);  color: #c0680a; }
+  .badge.pending   .badge-dot { background: var(--amber); }
+  .badge.published { background: rgba(39,174,96,0.1);   color: #1a7a42; }
+  .badge.published .badge-dot { background: var(--green); }
+  .badge.hidden    { background: rgba(168,164,158,0.15); color: var(--ink-faint); }
+  .badge.hidden    .badge-dot { background: var(--ink-faint); }
+
+  /* Action buttons */
+  .actions { display: flex; gap: 6px; flex-wrap: nowrap; }
+  .act-btn {
+    padding: 5px 11px; font-size: 12px; font-weight: 400;
+    border-radius: 3px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s; border: 1px solid; white-space: nowrap;
+  }
+  .act-btn:disabled { opacity: 0.35; cursor: default; }
+  .act-publish { color: var(--green);    border-color: rgba(39,174,96,0.35);  background: rgba(39,174,96,0.06); }
+  .act-publish:hover:not(:disabled) { background: rgba(39,174,96,0.15); border-color: var(--green); }
+  .act-hide    { color: var(--ink-muted); border-color: var(--rule); background: none; }
+  .act-hide:hover:not(:disabled) { background: var(--paper); border-color: var(--ink-faint); }
+  .act-delete  { color: var(--red);      border-color: rgba(192,57,43,0.3);   background: rgba(192,57,43,0.04); }
+  .act-delete:hover:not(:disabled) { background: rgba(192,57,43,0.1); border-color: var(--red); }
+
+  .attach-count { font-size: 12px; color: var(--ink-faint); }
+  .attach-count.has-files { color: var(--gold); }
+
+  /* ── Empty / Loading ── */
+  .empty-row td {
+    text-align: center; padding: 60px;
+    font-size: 14px; color: var(--ink-faint); font-weight: 300;
+  }
+
+  /* ── Preview drawer ── */
+  .drawer-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(26,24,20,0.5); justify-content: flex-end;
+  }
+  .drawer-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+
+  .drawer {
+    width: 480px; max-width: 90vw;
+    background: var(--card-bg); height: 100%; overflow-y: auto;
+    box-shadow: -4px 0 32px rgba(26,24,20,0.18);
+    animation: slideLeft 0.25s ease;
+    display: flex; flex-direction: column;
+  }
+
+  .drawer-header {
+    padding: 24px 28px 20px; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; position: sticky; top: 0; background: var(--card-bg); z-index: 1;
+  }
+  .drawer-meta { font-size: 12px; color: var(--ink-faint); margin-bottom: 8px; }
+  .drawer-title { font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 600; line-height: 1.5; }
+  .drawer-close {
+    background: none; border: none; cursor: pointer; font-size: 20px;
+    color: var(--ink-faint); padding: 4px 8px; border-radius: 3px; flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .drawer-close:hover { color: var(--ink); background: var(--paper); }
+
+  .drawer-body { padding: 24px 28px; flex: 1; }
+  .drawer-content {
+    font-size: 14px; font-weight: 300; line-height: 1.9; color: var(--ink-muted);
+    white-space: pre-wrap; margin-bottom: 24px;
+  }
+  .drawer-content:empty::before { content: '（无正文内容）'; color: var(--ink-faint); font-style: italic; }
+
+  .drawer-attach-title {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  .drawer-attach-list { display: flex; flex-direction: column; gap: 8px; }
+  .drawer-attach-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 4px;
+    text-decoration: none; color: inherit; transition: border-color 0.15s;
+  }
+  .drawer-attach-item:hover { border-color: var(--accent); }
+  .drawer-attach-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 3px; border: 1px solid var(--rule); flex-shrink: 0; }
+  .drawer-attach-icon {
+    width: 40px; height: 40px; border-radius: 3px; flex-shrink: 0;
+    background: var(--card-bg); border: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;
+  }
+  .drawer-attach-name { font-size: 13px; font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+  .drawer-footer {
+    padding: 16px 28px; border-top: 1px solid var(--rule);
+    display: flex; gap: 8px; background: var(--card-bg);
+    position: sticky; bottom: 0;
+  }
+  .drawer-act-btn {
+    flex: 1; padding: 10px; font-size: 13px; font-weight: 500;
+    border-radius: 3px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s; border: 1px solid;
+  }
+  .drawer-publish { background: var(--green); color: #fff; border-color: var(--green); }
+  .drawer-publish:hover { background: #219a52; }
+  .drawer-hide { background: none; color: var(--ink-muted); border-color: var(--rule); }
+  .drawer-hide:hover { background: var(--paper); }
+  .drawer-delete { background: none; color: var(--red); border-color: rgba(192,57,43,0.35); }
+  .drawer-delete:hover { background: rgba(192,57,43,0.08); }
+
+  /* ── Confirm dialog ── */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(26,24,20,0.6); align-items: center; justify-content: center;
+  }
+  .confirm-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
+  .confirm-box {
+    background: var(--card-bg); border-radius: 6px; padding: 32px 36px;
+    max-width: 380px; width: 90%; animation: slideUp 0.2s ease; text-align: center;
+  }
+  .confirm-icon { font-size: 28px; margin-bottom: 16px; }
+  .confirm-title { font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .confirm-sub { font-size: 13px; color: var(--ink-muted); font-weight: 300; margin-bottom: 28px; line-height: 1.6; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-cancel { flex: 1; padding: 10px; background: none; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink-muted); transition: all 0.15s; }
+  .confirm-cancel:hover { background: var(--paper); }
+  .confirm-ok { flex: 1; padding: 10px; background: var(--accent); border: none; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; color: #fff; font-weight: 500; transition: background 0.15s; }
+  .confirm-ok:hover { background: #a93226; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(8px);
+    padding: 11px 22px; border-radius: 4px; font-size: 13px; z-index: 400;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #1a1814; color: #f5f2ec; }
+  .toast.error   { background: var(--accent); color: #fff; }
+
+  @keyframes fadeUp   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideLeft { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideUp  { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 768px) {
+    .nav { padding: 0 16px; }
+    .page { padding: 24px 12px 60px; }
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .drawer { width: 100%; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="masthead"></div>
+
+<nav class="nav">
+  <a href="/admin.html" class="nav-logo">论<em>坛</em>广场<span class="nav-badge">管理后台</span></a>
+  <div class="nav-links">
+    <a href="/admin.html" class="nav-link active">投稿管理</a>
+    <a href="/forum.html" class="nav-link" target="_blank">查看广场 ↗</a>
+  </div>
+  <div class="nav-right">
+    <div class="nav-user">管理员：<span id="nav-admin-name"></span></div>
+    <button class="nav-btn" onclick="logout()">退出登录</button>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- Stats -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="stat-label">全部投稿</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">待审核</div><div class="stat-value pending" id="s-pending">—</div></div>
+    <div class="stat-card"><div class="stat-label">已发布</div><div class="stat-value published" id="s-published">—</div></div>
+    <div class="stat-card"><div class="stat-label">已隐藏</div><div class="stat-value hidden" id="s-hidden">—</div></div>
+    <div class="stat-card"><div class="stat-label">注册用户</div><div class="stat-value" id="s-users">—</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all"    onclick="setFilter('all',this)">全部</button>
+      <button class="filter-tab"        data-filter="pending"  onclick="setFilter('pending',this)">待审核</button>
+      <button class="filter-tab"        data-filter="published" onclick="setFilter('published',this)">已发布</button>
+      <button class="filter-tab"        data-filter="hidden"   onclick="setFilter('hidden',this)">已隐藏</button>
+    </div>
+    <div class="toolbar-right">
+      <span class="count-label" id="list-count"></span>
+      <button class="act-btn act-publish" style="padding:6px 16px" onclick="loadAll()">↻ 刷新</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:44px">#</th>
+          <th>标题 / 作者</th>
+          <th style="width:100px">附件</th>
+          <th style="width:110px">状态</th>
+          <th style="width:130px">提交时间</th>
+          <th style="width:240px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="post-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Preview Drawer -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-meta" id="drawer-meta"></div>
+        <div class="drawer-title" id="drawer-title"></div>
+      </div>
+      <button class="drawer-close" onclick="closeDrawerDirect()">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-content" id="drawer-content"></div>
+      <div id="drawer-attachments"></div>
+    </div>
+    <div class="drawer-footer">
+      <button class="drawer-act-btn drawer-publish" id="df-publish" onclick="drawerAction('published')">✓ 发布</button>
+      <button class="drawer-act-btn drawer-hide"    id="df-hide"    onclick="drawerAction('hidden')">隐藏</button>
+      <button class="drawer-act-btn drawer-delete"  id="df-delete"  onclick="drawerAction('delete')">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon" id="confirm-icon"></div>
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-sub" id="confirm-sub"></div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" onclick="closeConfirm()">取消</button>
+      <button class="confirm-ok" id="confirm-ok">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Auth guard ──────────────────────────────────────────────
+const token    = localStorage.getItem('token');
+const username = localStorage.getItem('username');
+const isAdmin  = localStorage.getItem('isAdmin') === 'true';
+
+if (!token || !isAdmin) {
+  alert('请用管理员账号登录');
+  window.location.href = '/';
+}
+
+document.getElementById('nav-admin-name').textContent = username;
+
+function logout() {
+  localStorage.clear();
+  window.location.href = '/';
+}
+
+const authHeaders = {
+  'Content-Type': 'application/json',
+  'Authorization': 'Bearer ' + token
+};
+
+// ── State ───────────────────────────────────────────────────
+let allPosts = [];
+let currentFilter = 'all';
+let drawerPostId = null;
+
+// ── Helpers ─────────────────────────────────────────────────
+function formatDate(str) {
+  const d = new Date(str.replace(' ', 'T') + 'Z');
+  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+    + ' ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(1) + 'KB';
+  return (b/1048576).toFixed(1) + 'MB';
+}
+
+function isImage(mime) { return mime && mime.startsWith('image/'); }
+
+function statusBadge(status) {
+  const map = { pending: '待审核', published: '已发布', hidden: '已隐藏' };
+  return `<span class="badge ${status}"><span class="badge-dot"></span>${map[status] || status}</span>`;
+}
+
+// ── Load data ───────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res = await fetch('/api/admin/stats', { headers: authHeaders });
+    const s = await res.json();
+    document.getElementById('s-total').textContent     = s.total;
+    document.getElementById('s-pending').textContent   = s.pending;
+    document.getElementById('s-published').textContent = s.published;
+    document.getElementById('s-hidden').textContent    = s.hidden;
+    document.getElementById('s-users').textContent     = s.users;
+  } catch(e) {}
+}
+
+async function loadAll() {
+  try {
+    const res = await fetch('/api/admin/posts', { headers: authHeaders });
+    allPosts = await res.json();
+    renderTable();
+    loadStats();
+  } catch(e) {
+    showToast('加载失败，请确认服务器运行中', 'error');
+  }
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const filtered = currentFilter === 'all'
+    ? allPosts
+    : allPosts.filter(p => p.status === currentFilter);
+
+  document.getElementById('list-count').textContent = `${filtered.length} 篇`;
+
+  const tbody = document.getElementById('post-tbody');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">暂无投稿</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  filtered.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.style.animationDelay = (i * 0.03) + 's';
+    tr.innerHTML = `
+      <td style="color:var(--ink-faint);font-size:12px">${p.id}</td>
+      <td class="td-title">
+        <span class="post-title-text" onclick="openDrawer(${p.id})" title="${p.title}">${p.title}</span>
+        <div class="post-meta-text">${p.nickname || p.username} · ${formatDate(p.created_at)}</div>
+      </td>
+      <td>
+        <span class="attach-count ${p.attachment_count > 0 ? 'has-files' : ''}">
+          ${p.attachment_count > 0 ? '📎 ' + p.attachment_count : '—'}
+        </span>
+      </td>
+      <td>${statusBadge(p.status)}</td>
+      <td style="font-size:12px;color:var(--ink-faint)">${formatDate(p.created_at)}</td>
+      <td>
+        <div class="actions">
+          <button class="act-btn act-publish" onclick="updateStatus(${p.id},'published')" ${p.status==='published'?'disabled':''}>发布</button>
+          <button class="act-btn act-hide"    onclick="updateStatus(${p.id},'hidden')"    ${p.status==='hidden'?'disabled':''}>隐藏</button>
+          <button class="act-btn act-delete"  onclick="confirmDelete(${p.id}, '${p.title.replace(/'/g,"\\'")}')">删除</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Status update ───────────────────────────────────────────
+async function updateStatus(id, status) {
+  try {
+    const res = await fetch(`/api/admin/posts/${id}`, {
+      method: 'PATCH',
+      headers: authHeaders,
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error, 'error'); return; }
+    const map = { published: '已发布 ✓', hidden: '已隐藏', pending: '已设为待审核' };
+    showToast(map[status] || '已更新', 'success');
+    // Update local state without full reload
+    const post = allPosts.find(p => p.id === id);
+    if (post) post.status = status;
+    renderTable();
+    loadStats();
+    // Update drawer if open
+    if (drawerPostId === id) updateDrawerStatus(status);
+  } catch(e) {
+    showToast('操作失败', 'error');
+  }
+}
+
+// ── Delete ──────────────────────────────────────────────────
+function confirmDelete(id, title) {
+  document.getElementById('confirm-icon').textContent = '🗑';
+  document.getElementById('confirm-title').textContent = '确认永久删除';
+  document.getElementById('confirm-sub').textContent = `「${title}」将被彻底删除，附件文件也会从服务器移除，此操作无法撤销。`;
+  document.getElementById('confirm-ok').onclick = async () => {
+    closeConfirm();
+    try {
+      const res = await fetch(`/api/admin/posts/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error, 'error'); return; }
+      showToast('已永久删除', 'success');
+      allPosts = allPosts.filter(p => p.id !== id);
+      renderTable();
+      loadStats();
+      if (drawerPostId === id) closeDrawerDirect();
+    } catch(e) {
+      showToast('删除失败', 'error');
+    }
+  };
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+// ── Drawer ──────────────────────────────────────────────────
+async function openDrawer(id) {
+  drawerPostId = id;
+  document.getElementById('drawer-title').textContent = '加载中…';
+  document.getElementById('drawer-content').textContent = '';
+  document.getElementById('drawer-attachments').innerHTML = '';
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const res  = await fetch(`/api/posts/${id}`, { headers: authHeaders });
+    const post = await res.json();
+    const p    = allPosts.find(x => x.id === id);
+
+    document.getElementById('drawer-meta').textContent =
+      `${post.username} · ${formatDate(post.created_at)} · ${statusBadge(p ? p.status : post.status).replace(/<[^>]+>/g,'')}`;
+    document.getElementById('drawer-meta').innerHTML =
+      `${post.username} · ${formatDate(post.created_at)} · ${statusBadge(p ? p.status : post.status)}`;
+    document.getElementById('drawer-title').textContent = post.title;
+    document.getElementById('drawer-content').textContent = post.content || '';
+
+    // Attachments
+    const attachArea = document.getElementById('drawer-attachments');
+    if (post.attachments && post.attachments.length > 0) {
+      const items = post.attachments.map(a => {
+        const url = `/uploads/${a.filename}`;
+        const thumb = isImage(a.mimetype)
+          ? `<img class="drawer-attach-thumb" src="${url}" alt="${a.originalname}">`
+          : `<div class="drawer-attach-icon">${a.originalname.split('.').pop().toUpperCase().slice(0,4)}</div>`;
+        return `
+          <a class="drawer-attach-item" href="${url}" target="_blank">
+            ${thumb}
+            <span class="drawer-attach-name">${a.originalname}</span>
+            <span style="font-size:11px;color:var(--ink-faint);flex-shrink:0">${formatSize(a.size)}</span>
+          </a>`;
+      }).join('');
+      attachArea.innerHTML = `
+        <div class="drawer-attach-title">附件 · ${post.attachments.length} 个</div>
+        <div class="drawer-attach-list">${items}</div>`;
+    }
+
+    // Update drawer footer button states
+    updateDrawerStatus(p ? p.status : post.status);
+  } catch(e) {
+    document.getElementById('drawer-title').textContent = '加载失败';
+  }
+}
+
+function updateDrawerStatus(status) {
+  document.getElementById('df-publish').disabled = status === 'published';
+  document.getElementById('df-hide').disabled    = status === 'hidden';
+}
+
+function drawerAction(action) {
+  if (!drawerPostId) return;
+  if (action === 'delete') {
+    const p = allPosts.find(x => x.id === drawerPostId);
+    confirmDelete(drawerPostId, p ? p.title : '此文章');
+  } else {
+    updateStatus(drawerPostId, action);
+  }
+}
+
+function closeDrawer(e) {
+  if (e.target === document.getElementById('drawer-overlay')) closeDrawerDirect();
+}
+
+function closeDrawerDirect() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  drawerPostId = null;
+}
+
+// ── Toast ───────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Keyboard ────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawerDirect(); closeConfirm(); }
+});
+
+// ── Init ─────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>

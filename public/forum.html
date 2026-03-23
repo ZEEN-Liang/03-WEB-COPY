@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>广场 · 论坛广场</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=DM+Serif+Display&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1814;
+    --ink-muted: #5c5850;
+    --ink-faint: #a8a49e;
+    --paper: #f5f2ec;
+    --rule: #d8d3ca;
+    --accent: #c0392b;
+    --gold: #b8963e;
+    --card-bg: #faf8f4;
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.03) 28px, rgba(26,24,20,0.03) 29px);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Masthead ── */
+  .masthead { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--accent); z-index: 100; }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky; top: 4px; z-index: 90;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: stretch;
+    padding: 0 48px;
+    height: 56px;
+  }
+
+  .nav-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; color: var(--ink); text-decoration: none;
+    display: flex; align-items: center;
+    margin-right: 36px;
+  }
+  .nav-logo em { font-style: italic; color: var(--accent); }
+
+  .nav-links { display: flex; align-items: stretch; flex: 1; }
+
+  .nav-link {
+    display: flex; align-items: center;
+    padding: 0 16px;
+    font-size: 13px; font-weight: 400; color: var(--ink-muted);
+    text-decoration: none; letter-spacing: 0.04em;
+    position: relative;
+    transition: color 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .nav-link:hover { color: var(--ink); }
+  .nav-link.active {
+    color: var(--ink); font-weight: 500;
+    border-bottom-color: var(--accent);
+  }
+
+  .nav-right {
+    display: flex; align-items: center; gap: 16px;
+    margin-left: auto;
+  }
+
+  .nav-user { font-size: 13px; font-weight: 300; color: var(--ink-muted); }
+  .nav-user span { color: var(--ink); font-weight: 500; }
+
+  .nav-btn {
+    font-size: 12px; font-family: 'Noto Sans SC', sans-serif;
+    padding: 6px 16px; border-radius: 3px; cursor: pointer;
+    transition: all 0.2s; text-decoration: none;
+    display: flex; align-items: center;
+  }
+  .nav-btn-primary {
+    background: var(--ink); color: #f5f2ec; border: none;
+  }
+  .nav-btn-primary:hover { background: var(--accent); }
+  .nav-btn-outline {
+    background: none; color: var(--ink-muted);
+    border: 1px solid var(--rule);
+  }
+  .nav-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Page ── */
+  .page {
+    position: relative; z-index: 1;
+    max-width: 900px; margin: 0 auto;
+    padding: 52px 24px 80px;
+  }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 40px; padding-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .page-header-left {}
+  .page-eyebrow {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px; line-height: 1.1; color: var(--ink);
+  }
+  .page-title em { font-style: italic; color: var(--accent); }
+
+  .post-count {
+    font-size: 12px; font-weight: 300; color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Loading / empty ── */
+  .state-msg {
+    text-align: center; padding: 80px 0;
+    font-size: 14px; font-weight: 300; color: var(--ink-faint);
+    animation: fadeUp 0.4s ease;
+  }
+  .state-msg .icon { font-size: 32px; margin-bottom: 16px; opacity: 0.4; }
+  .state-msg p { margin-bottom: 20px; }
+  .state-msg a {
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    border-bottom: 1px solid rgba(192,57,43,0.3);
+    transition: border-color 0.2s;
+  }
+  .state-msg a:hover { border-color: var(--accent); }
+
+  /* ── Post list ── */
+  .post-list {
+    display: flex; flex-direction: column; gap: 0;
+  }
+
+  .post-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--rule);
+    text-decoration: none; color: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+    animation: fadeUp 0.4s ease both;
+    position: relative;
+  }
+
+  .post-item::before {
+    content: '';
+    position: absolute;
+    left: -24px; right: -24px; top: 0; bottom: 0;
+    background: rgba(26,24,20,0.02);
+    opacity: 0;
+    transition: opacity 0.15s;
+    border-radius: 4px;
+  }
+  .post-item:hover::before { opacity: 1; }
+
+  .post-item:first-child { border-top: none; }
+
+  .post-main {}
+
+  .post-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .post-author {
+    font-size: 12px; font-weight: 500; color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .post-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--rule); }
+  .post-date { font-size: 12px; font-weight: 300; color: var(--ink-faint); }
+
+  .post-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px; font-weight: 600;
+    color: var(--ink); line-height: 1.5;
+    margin-bottom: 8px;
+    transition: color 0.15s;
+  }
+  .post-item:hover .post-title { color: var(--accent); }
+
+  .post-excerpt {
+    font-size: 13px; font-weight: 300;
+    color: var(--ink-muted); line-height: 1.8;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .post-footer {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 12px;
+  }
+
+  .post-tag {
+    font-size: 11px; font-weight: 400; letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 2px;
+    background: var(--paper); border: 1px solid var(--rule);
+    color: var(--ink-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .post-tag.has-files { border-color: var(--gold); color: var(--gold); background: rgba(184,150,62,0.06); }
+
+  .post-stat {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 300; color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+  .post-stat-icon { font-size: 12px; opacity: 0.7; }
+
+  .post-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; align-self: center;
+    color: var(--ink-faint); font-size: 18px;
+    transition: color 0.2s, transform 0.2s;
+  }
+  .post-item:hover .post-arrow { color: var(--accent); transform: translateX(4px); }
+
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(26,24,20,0.5);
+    align-items: center; justify-content: center;
+    padding: 24px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--card-bg);
+    border-radius: 6px;
+    width: 100%; max-width: 680px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+    position: relative;
+  }
+
+  .modal-header {
+    padding: 32px 36px 24px;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0;
+    background: var(--card-bg); z-index: 1;
+  }
+  .modal-eyebrow {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .modal-author-name { color: var(--accent); font-weight: 500; }
+  .modal-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 22px; font-weight: 600; line-height: 1.5; color: var(--ink);
+  }
+  .modal-close {
+    position: absolute; top: 20px; right: 20px;
+    background: none; border: none; cursor: pointer;
+    font-size: 20px; color: var(--ink-faint); padding: 6px 10px;
+    border-radius: 4px; transition: color 0.15s, background 0.15s;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--ink); background: var(--paper); }
+
+  .modal-body { padding: 28px 36px 36px; }
+
+  .modal-content {
+    font-size: 15px; font-weight: 300; line-height: 2;
+    color: var(--ink-muted); white-space: pre-wrap;
+    margin-bottom: 28px;
+  }
+  .modal-content:empty { display: none; }
+
+  /* Attachments in modal */
+  .modal-attachments { margin-top: 24px; }
+  .modal-attach-title {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .attach-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .attach-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 4px; text-decoration: none; color: inherit;
+    transition: border-color 0.15s;
+  }
+  .attach-item:hover { border-color: var(--accent); }
+
+  .attach-preview {
+    width: 48px; height: 48px; border-radius: 3px;
+    object-fit: cover; flex-shrink: 0;
+    border: 1px solid var(--rule);
+  }
+  .attach-icon {
+    width: 48px; height: 48px; border-radius: 3px; flex-shrink: 0;
+    background: var(--card-bg); border: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+    color: var(--ink-muted);
+  }
+  .attach-info { flex: 1; min-width: 0; }
+  .attach-name {
+    font-size: 13px; font-weight: 400; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .attach-size { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+  .attach-dl {
+    font-size: 11px; color: var(--ink-faint); padding: 4px 8px;
+    border: 1px solid var(--rule); border-radius: 2px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .attach-item:hover .attach-dl { color: var(--accent); border-color: var(--accent); }
+
+  /* Image lightbox inside modal */
+  .image-full {
+    max-width: 100%; border-radius: 4px;
+    margin-top: 24px; border: 1px solid var(--rule);
+    display: block;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp   { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp  { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 600px) {
+    .nav { padding: 0 16px; }
+    .nav-user { display: none; }
+    .page { padding: 32px 16px 60px; }
+    .modal-header, .modal-body { padding-left: 20px; padding-right: 20px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="masthead"></div>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <div class="nav-links">
+    <a href="/forum.html" class="nav-link active">广 场</a>
+    <a href="/post.html" class="nav-link" id="nav-post-link">投 稿</a>
+  </div>
+  <div class="nav-right" id="nav-right">
+    <!-- filled by JS -->
+  </div>
+</nav>
+
+<!-- Page -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-eyebrow">Community · Forum</div>
+      <div class="page-title">所有<em>投稿</em></div>
+    </div>
+    <div class="post-count" id="post-count"></div>
+  </div>
+
+  <div id="list-area">
+    <div class="state-msg" id="loading-msg">
+      <div class="icon">◌</div>
+      <p>正在加载...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-eyebrow">
+        <span id="modal-author" class="modal-author-name"></span>
+        <span>·</span>
+        <span id="modal-date"></span>
+      </div>
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModalDirect()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-content" id="modal-content"></div>
+      <div class="modal-attachments" id="modal-attachments" style="display:none">
+        <div class="modal-attach-title">附件</div>
+        <div class="attach-list" id="attach-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Auth state ──────────────────────────────────────────────
+const token    = localStorage.getItem('token');
+const username = localStorage.getItem('username');
+
+// Render nav right side
+const navRight = document.getElementById('nav-right');
+if (token && username) {
+  navRight.innerHTML = `
+    <div class="nav-user">你好，<span>${username}</span></div>
+    <a href="/profile.html" class="nav-btn">我的主页</a>
+    <a href="/post.html" class="nav-btn nav-btn-primary">写投稿</a>
+    <button class="nav-btn nav-btn-outline" onclick="logout()">退出</button>
+  `;
+} else {
+  navRight.innerHTML = `
+    <a href="/" class="nav-btn nav-btn-outline">登录</a>
+    <a href="/" class="nav-btn nav-btn-primary">注册</a>
+  `;
+  // Hide post link for guests (optional — they'll be redirected anyway)
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  window.location.href = '/';
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+
+// Build avatar HTML — shows photo if available, else initial letter
+function avatarHtml(username, avatarUrl, size = 36) {
+  const letter = (username || '?')[0].toUpperCase();
+  const style  = `width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--ink);color:#f5f2ec;font-family:'DM Serif Display',serif;font-size:${Math.round(size*0.42)}px;font-weight:500;`;
+  const url = (avatarUrl && avatarUrl !== '0' && avatarUrl !== 0 && String(avatarUrl).startsWith('/')) ? avatarUrl : null;
+  if (url) {
+    return `<div style="${style}padding:0"><img src="${url}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='${letter}';this.parentElement.style.padding=''" alt="${letter}"></div>`;
+  }
+  return `<div style="${style}">${letter}</div>`;
+}
+
+function formatDate(str) {
+  const d = new Date(str.replace(' ', 'T') + 'Z');
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function isImage(mime) { return mime && mime.startsWith('image/'); }
+
+// ── Load posts ───────────────────────────────────────────────
+async function loadPosts() {
+  try {
+    const res = await fetch('/api/posts');
+    const posts = await res.json();
+
+    const area = document.getElementById('list-area');
+
+    if (!posts.length) {
+      area.innerHTML = `
+        <div class="state-msg">
+          <div class="icon">✦</div>
+          <p>还没有任何投稿，成为第一位作者吧</p>
+          <a href="/post.html">立即投稿 →</a>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('post-count').textContent = `共 ${posts.length} 篇`;
+
+    const list = document.createElement('div');
+    list.className = 'post-list';
+
+    posts.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'post-item';
+      item.style.animationDelay = (i * 0.04) + 's';
+      item.onclick = () => window.location.href = `/article.html?id=${p.id}`;
+
+      const hasFiles = p.attachment_count > 0;
+      const excerpt  = p.content ? p.content.slice(0, 120) + (p.content.length > 120 ? '…' : '') : '';
+
+      item.innerHTML = `
+        <div class="post-main">
+          <div class="post-meta" style="display:flex;align-items:center;gap:8px">
+            <a href="/profile.html?user=${encodeURIComponent(p.username)}"
+               onclick="event.stopPropagation()"
+               style="display:flex;align-items:center;gap:7px;text-decoration:none"
+               title="查看主页">
+              ${avatarHtml(p.nickname || p.username, p.avatar, 24)}
+              <span class="post-author">${p.nickname || p.username}</span>
+            </a>
+            <span class="post-dot"></span>
+            <span class="post-date">${formatDate(p.created_at)}</span>
+          </div>
+          <div class="post-title">${p.title}</div>
+          ${excerpt ? `<div class="post-excerpt">${excerpt}</div>` : ''}
+          <div class="post-footer">
+            ${hasFiles ? `<span class="post-tag has-files">📎 ${p.attachment_count} 个附件</span>` : ''}
+            <span class="post-stat"><span class="post-stat-icon">👁</span>${p.view_count || 0}</span>
+            <span class="post-stat"><span class="post-stat-icon">💬</span>${p.comment_count || 0}</span>
+            <span class="post-stat"><span class="post-stat-icon">♥</span>${p.like_count || 0}</span>
+          </div>
+        </div>
+        <div class="post-arrow">›</div>
+      `;
+      list.appendChild(item);
+    });
+
+    area.innerHTML = '';
+    area.appendChild(list);
+
+  } catch (e) {
+    document.getElementById('list-area').innerHTML = `
+      <div class="state-msg">
+        <div class="icon">!</div>
+        <p>加载失败，请确认服务器正在运行</p>
+      </div>`;
+  }
+}
+
+// ── Modal ────────────────────────────────────────────────────
+async function openModal(id) {
+  try {
+    const res  = await fetch(`/api/posts/${id}`);
+    const post = await res.json();
+
+    document.getElementById('modal-author').textContent  = post.username;
+    document.getElementById('modal-date').textContent    = formatDate(post.created_at);
+    document.getElementById('modal-title').textContent   = post.title;
+    document.getElementById('modal-content').textContent = post.content || '';
+
+    const attachArea = document.getElementById('modal-attachments');
+    const attachList = document.getElementById('attach-list');
+    attachList.innerHTML = '';
+
+    if (post.attachments && post.attachments.length > 0) {
+      attachArea.style.display = 'block';
+      post.attachments.forEach(a => {
+        const url  = `/uploads/${a.filename}`;
+        const item = document.createElement('a');
+        item.className = 'attach-item';
+        item.href   = url;
+        item.target = '_blank';
+
+        if (isImage(a.mimetype)) {
+          item.innerHTML = `
+            <img class="attach-preview" src="${url}" alt="${a.originalname}">
+            <div class="attach-info">
+              <div class="attach-name">${a.originalname}</div>
+              <div class="attach-size">${formatSize(a.size)}</div>
+            </div>
+            <span class="attach-dl">查看</span>
+          `;
+        } else {
+          item.innerHTML = `
+            <div class="attach-icon">TXT</div>
+            <div class="attach-info">
+              <div class="attach-name">${a.originalname}</div>
+              <div class="attach-size">${formatSize(a.size)}</div>
+            </div>
+            <span class="attach-dl">下载</span>
+          `;
+        }
+        attachList.appendChild(item);
+      });
+    } else {
+      attachArea.style.display = 'none';
+    }
+
+    document.getElementById('modal-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+}
+
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModalDirect();
+});
+
+// ── Init ─────────────────────────────────────────────────────
+loadPosts();
+</script>
+</body>
+</html>

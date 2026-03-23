@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人主页 · 论坛广场</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=DM+Serif+Display&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #1a1814; --ink-muted: #5c5850; --ink-faint: #a8a49e;
+    --paper: #f5f2ec; --rule: #d8d3ca; --accent: #c0392b;
+    --gold: #b8963e; --card-bg: #faf8f4;
+  }
+  html, body { min-height: 100%; font-family: 'Noto Sans SC', sans-serif; background: var(--paper); color: var(--ink); }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(26,24,20,0.025) 28px, rgba(26,24,20,0.025) 29px);
+    pointer-events: none; z-index: 0;
+  }
+
+  .masthead { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--accent); z-index: 100; }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky; top: 4px; z-index: 90;
+    background: var(--paper); border-bottom: 1px solid var(--rule);
+    display: flex; align-items: stretch; padding: 0 48px; height: 56px;
+  }
+  .nav-logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); text-decoration: none; display: flex; align-items: center; margin-right: 36px; }
+  .nav-logo em { font-style: italic; color: var(--accent); }
+  .nav-links { display: flex; align-items: stretch; flex: 1; }
+  .nav-link { display: flex; align-items: center; padding: 0 16px; font-size: 13px; color: var(--ink-muted); text-decoration: none; transition: color 0.2s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .nav-link:hover { color: var(--ink); }
+  .nav-link.active { color: var(--ink); font-weight: 500; border-bottom-color: var(--accent); }
+  .nav-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .nav-user { font-size: 13px; font-weight: 300; color: var(--ink-muted); }
+  .nav-user span { color: var(--ink); font-weight: 500; }
+  .nav-btn { font-size: 12px; font-family: inherit; padding: 6px 14px; border-radius: 3px; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 1px solid var(--rule); color: var(--ink-muted); background: none; display: flex; align-items: center; }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn-primary { background: var(--ink); color: #f5f2ec; border-color: var(--ink); }
+  .nav-btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #f5f2ec; }
+
+  /* ── Layout ── */
+  .page { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 52px 24px 80px; }
+
+  /* ── Profile card ── */
+  .profile-card {
+    background: var(--card-bg); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 40px 44px; margin-bottom: 36px;
+    display: grid; grid-template-columns: auto 1fr; gap: 36px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  /* Avatar */
+  .avatar-wrap { position: relative; flex-shrink: 0; }
+  .avatar {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: var(--ink); color: #f5f2ec;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif; font-size: 40px;
+    overflow: hidden; border: 3px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-edit-btn {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--ink); color: #f5f2ec; border: 2px solid var(--paper);
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; transition: background 0.15s;
+  }
+  .avatar-edit-btn:hover { background: var(--accent); }
+  .avatar-edit-btn.show { display: flex; }
+  .avatar-file-input { display: none; }
+
+  /* Profile info */
+  .profile-info { min-width: 0; }
+
+  .profile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .profile-names {}
+  .profile-nickname {
+    font-family: 'Noto Serif SC', serif; font-size: 22px; font-weight: 600;
+    color: var(--ink); margin-bottom: 2px;
+  }
+  .profile-username { font-size: 13px; font-weight: 300; color: var(--ink-faint); }
+
+  .edit-profile-btn {
+    padding: 7px 18px; background: none; border: 1.5px solid var(--rule);
+    border-radius: 3px; font-family: inherit; font-size: 13px; color: var(--ink-muted);
+    cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  }
+  .edit-profile-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .profile-instruments {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+  }
+  .instrument-tag {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(184,150,62,0.1); border: 1px solid rgba(184,150,62,0.35);
+    color: var(--gold);
+  }
+
+  .profile-bio {
+    font-size: 14px; font-weight: 300; color: var(--ink-muted);
+    line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+  }
+  .profile-bio.empty { color: var(--ink-faint); font-style: italic; }
+
+  .profile-stats {
+    display: flex; gap: 28px; margin-top: 18px;
+    padding-top: 18px; border-top: 1px solid var(--rule);
+  }
+  .profile-stat { text-align: center; }
+  .profile-stat-num { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink); }
+  .profile-stat-label { font-size: 11px; font-weight: 300; color: var(--ink-faint); margin-top: 2px; }
+
+  /* ── Edit modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(26,24,20,0.5); align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+  .modal {
+    background: var(--card-bg); border-radius: 8px;
+    width: 100%; max-width: 520px;
+    animation: slideUp 0.25s ease;
+  }
+  .modal-header {
+    padding: 24px 28px 20px; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title { font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 22px; color: var(--ink-faint); cursor: pointer; padding: 4px 8px; border-radius: 3px; transition: color 0.15s; line-height: 1; }
+  .modal-close:hover { color: var(--ink); }
+  .modal-body { padding: 24px 28px; }
+  .modal-footer { padding: 16px 28px; border-top: 1px solid var(--rule); display: flex; justify-content: flex-end; gap: 10px; }
+
+  .field-group { margin-bottom: 20px; }
+  .field-label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 7px; }
+  .field-label span { font-weight: 300; text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
+  .field-input, .field-textarea {
+    width: 100%; padding: 10px 13px; background: #fff; border: 1.5px solid var(--rule);
+    border-radius: 3px; font-family: inherit; font-size: 14px; font-weight: 300;
+    color: var(--ink); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field-input::placeholder, .field-textarea::placeholder { color: var(--ink-faint); }
+  .field-input:focus, .field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.07); }
+  .field-textarea { resize: vertical; min-height: 80px; line-height: 1.7; }
+  .field-hint { font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+
+  /* Instrument tags editor */
+  .tags-input-wrap {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 8px 10px; background: #fff; border: 1.5px solid var(--rule);
+    border-radius: 3px; cursor: text; min-height: 42px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .tags-input-wrap.focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.07); }
+  .tag-item {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; padding: 3px 10px 3px 10px; border-radius: 20px;
+    background: rgba(184,150,62,0.1); border: 1px solid rgba(184,150,62,0.35); color: var(--gold);
+  }
+  .tag-remove { cursor: pointer; font-size: 14px; line-height: 1; color: var(--gold); opacity: 0.7; transition: opacity 0.15s; border: none; background: none; padding: 0; }
+  .tag-remove:hover { opacity: 1; }
+  .tag-input { border: none; outline: none; font-family: inherit; font-size: 13px; font-weight: 300; color: var(--ink); background: transparent; min-width: 80px; flex: 1; padding: 2px 4px; }
+
+  .btn-cancel { padding: 9px 20px; background: none; border: 1px solid var(--rule); border-radius: 3px; font-family: inherit; font-size: 13px; color: var(--ink-muted); cursor: pointer; transition: all 0.15s; }
+  .btn-cancel:hover { background: var(--paper); }
+  .btn-save { padding: 9px 24px; background: var(--ink); color: #f5f2ec; border: none; border-radius: 3px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; position: relative; overflow: hidden; transition: transform 0.1s; }
+  .btn-save::before { content: ''; position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform 0.28s; }
+  .btn-save:hover::before { transform: scaleX(1); }
+  .btn-save span { position: relative; z-index: 1; }
+  .btn-save:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn-save.loading span { opacity: 0; }
+  .btn-save.loading::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; z-index: 2; }
+
+  /* ── Posts section ── */
+  .section-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1.5px solid var(--rule); }
+  .section-title { font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 600; }
+  .section-count { font-size: 13px; color: var(--ink-faint); font-weight: 300; }
+
+  .post-list { display: flex; flex-direction: column; }
+  .post-item {
+    padding: 20px 0; border-bottom: 1px solid var(--rule);
+    cursor: pointer; position: relative; animation: fadeUp 0.35s ease both;
+  }
+  .post-item::before { content: ''; position: absolute; left: -20px; right: -20px; top: 0; bottom: 0; background: rgba(26,24,20,0.02); opacity: 0; transition: opacity 0.15s; border-radius: 4px; }
+  .post-item:hover::before { opacity: 1; }
+  .post-item:last-child { border-bottom: none; }
+  .post-title { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 600; color: var(--ink); margin-bottom: 6px; transition: color 0.15s; line-height: 1.5; }
+  .post-item:hover .post-title { color: var(--accent); }
+  .post-excerpt { font-size: 13px; font-weight: 300; color: var(--ink-muted); line-height: 1.8; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .post-footer-stats { display: flex; align-items: center; gap: 14px; }
+  .post-stat { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 300; color: var(--ink-faint); }
+
+  /* ── State messages ── */
+  .state-msg { text-align: center; padding: 60px 0; font-size: 14px; font-weight: 300; color: var(--ink-faint); animation: fadeUp 0.4s ease; }
+  .state-msg .icon { font-size: 32px; margin-bottom: 16px; opacity: 0.35; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(8px); padding: 11px 22px; border-radius: 4px; font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #1a1814; color: #f5f2ec; }
+  .toast.error { background: var(--accent); color: #fff; }
+
+  /* ── Crop modal ── */
+  .crop-overlay {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(10,9,8,0.88); align-items: center; justify-content: center;
+  }
+  .crop-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+  .crop-modal {
+    background: #1a1814; border-radius: 8px; overflow: hidden;
+    width: min(520px, 96vw); display: flex; flex-direction: column;
+    animation: slideUp 0.25s ease;
+  }
+  .crop-header {
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .crop-header-title { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.9); }
+  .crop-close { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 20px; cursor: pointer; padding: 2px 8px; border-radius: 3px; line-height: 1; transition: color 0.15s; }
+  .crop-close:hover { color: #fff; }
+  .crop-canvas-wrap {
+    position: relative; width: 100%; height: 340px;
+    background: #111; overflow: hidden;
+  }
+  .crop-canvas-wrap img { display: block; max-width: 100%; }
+  .crop-footer {
+    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.08); gap: 12px;
+  }
+  .crop-hint { font-size: 12px; color: rgba(255,255,255,0.35); font-weight: 300; }
+  .crop-btns { display: flex; gap: 8px; }
+  .btn-crop-cancel {
+    padding: 8px 18px; background: none; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 3px; color: rgba(255,255,255,0.6); font-family: inherit;
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-crop-cancel:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+  .btn-crop-confirm {
+    padding: 8px 22px; background: var(--accent); border: none;
+    border-radius: 3px; color: #fff; font-family: inherit;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s;
+    position: relative;
+  }
+  .btn-crop-confirm:hover { background: #a93226; }
+  .btn-crop-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-crop-confirm.loading::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%); width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  .btn-crop-confirm.loading span { opacity: 0; }
+
+  @keyframes fadeUp   { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp  { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin     { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .nav { padding: 0 16px; } .nav-user { display: none; }
+    .page { padding: 32px 16px 60px; }
+    .profile-card { grid-template-columns: 1fr; gap: 20px; padding: 28px 20px; }
+    .profile-top { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="masthead"></div>
+
+<nav class="nav">
+  <a href="/forum.html" class="nav-logo">论<em>坛</em>广场</a>
+  <div class="nav-links">
+    <a href="/forum.html" class="nav-link">广 场</a>
+    <a href="/post.html"  class="nav-link">投 稿</a>
+  </div>
+  <div class="nav-right" id="nav-right"></div>
+</nav>
+
+<div class="page" id="page">
+  <div class="state-msg"><div class="icon">◌</div><div>加载中…</div></div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">编辑个人资料</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">昵称 <span>最多 30 字</span></label>
+        <input class="field-input" id="edit-nickname" type="text" maxlength="30" placeholder="你的显示名称">
+      </div>
+      <div class="field-group">
+        <label class="field-label">乐器 <span>输入后按 Enter 添加</span></label>
+        <div class="tags-input-wrap" id="tags-wrap" onclick="focusTagInput()">
+          <input class="tag-input" id="tag-input" placeholder="如：钢琴、吉他…" maxlength="20">
+        </div>
+        <div class="field-hint">每种乐器单独添加，点击 × 删除</div>
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label class="field-label">简介 <span>最多 200 字</span></label>
+        <textarea class="field-textarea" id="edit-bio" maxlength="200" placeholder="介绍一下你自己…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" id="btn-save" onclick="saveProfile()"><span>保存</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Crop modal -->
+<div class="crop-overlay" id="crop-overlay">
+  <div class="crop-modal">
+    <div class="crop-header">
+      <span class="crop-header-title">裁剪头像</span>
+      <button class="crop-close" onclick="closeCrop()">×</button>
+    </div>
+    <div class="crop-canvas-wrap">
+      <img id="crop-img" src="" alt="crop">
+    </div>
+    <div class="crop-footer">
+      <span class="crop-hint">拖动调整位置 · 滚轮缩放</span>
+      <div class="crop-btns">
+        <button class="btn-crop-cancel" onclick="closeCrop()">取消</button>
+        <button class="btn-crop-confirm" id="btn-crop-confirm" onclick="confirmCrop()"><span>确认裁剪并上传</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const token    = localStorage.getItem('token');
+const myName   = localStorage.getItem('username');
+const isAdmin  = localStorage.getItem('isAdmin') === 'true';
+
+// Determine whose profile to show: ?user=xxx or own profile
+const params      = new URLSearchParams(location.search);
+const targetUser  = params.get('user') || myName;
+const isOwn       = token && !isAdmin && myName === targetUser;
+
+// ── Nav ─────────────────────────────────────────────────────
+const navRight = document.getElementById('nav-right');
+if (token && myName) {
+  navRight.innerHTML = `
+    <div class="nav-user">你好，<span>${myName}</span></div>
+    ${isOwn ? '' : `<a href="/profile.html" class="nav-btn">我的主页</a>`}
+    <button class="nav-btn" onclick="logout()">退出</button>
+  `;
+} else {
+  navRight.innerHTML = `
+    <a href="/" class="nav-btn">登录</a>
+    <a href="/" class="nav-btn nav-btn-primary">注册</a>
+  `;
+}
+function logout() { localStorage.clear(); window.location.href = '/'; }
+
+// ── Helpers ──────────────────────────────────────────────────
+function formatDate(str) {
+  const d = new Date(str.replace(' ','T')+'Z');
+  return d.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+let toastTimer;
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast '+type+' show';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Load profile ─────────────────────────────────────────────
+let profileData = null;
+
+async function loadProfile() {
+  const page = document.getElementById('page');
+  if (!targetUser) {
+    page.innerHTML = `<div class="state-msg"><div class="icon">?</div><div>请先登录或指定用户</div></div>`;
+    return;
+  }
+  try {
+    const [profRes, postsRes] = await Promise.all([
+      fetch('/api/profile/' + encodeURIComponent(targetUser)),
+      fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts')
+    ]);
+    if (!profRes.ok) { page.innerHTML = `<div class="state-msg"><div class="icon">◻</div><div>用户不存在</div></div>`; return; }
+    profileData = await profRes.json();
+    const posts  = await postsRes.json();
+    renderPage(profileData, posts);
+  } catch(e) {
+    document.getElementById('page').innerHTML = `<div class="state-msg"><div class="icon">!</div><div>加载失败，请确认服务器运行中</div></div>`;
+  }
+}
+
+function renderPage(u, posts) {
+  document.title = (u.nickname || u.username) + ' · 论坛广场';
+  const instruments = u.instruments ? u.instruments.split(',').filter(Boolean) : [];
+  const instHtml = instruments.map(i => `<span class="instrument-tag">${esc(i.trim())}</span>`).join('');
+  const avatarHtml = u.avatar
+    ? `<img src="${esc(u.avatar)}" alt="avatar">`
+    : `<span>${(u.nickname || u.username)[0].toUpperCase()}</span>`;
+
+  const editBtn  = isOwn ? `<button class="edit-profile-btn" onclick="openModal()">编辑资料</button>` : '';
+  const editAvatar = isOwn ? `<button class="avatar-edit-btn show" onclick="document.getElementById('avatar-file-input').click()" title="更换头像">✎</button>` : '';
+
+  const postListHtml = posts.length === 0
+    ? `<div class="state-msg" style="padding:40px 0"><div class="icon" style="font-size:24px;margin-bottom:10px">✦</div><div>${isOwn ? '你还没有发布任何投稿' : '该用户暂无公开投稿'}</div></div>`
+    : posts.map((p, i) => `
+      <div class="post-item" style="animation-delay:${i*0.04}s" onclick="window.location.href='/article.html?id=${p.id}'">
+        <div class="post-title">${esc(p.title)}</div>
+        ${p.content ? `<div class="post-excerpt">${esc(p.content.slice(0,100))}${p.content.length>100?'…':''}</div>` : ''}
+        <div class="post-footer-stats">
+          <span class="post-stat">📅 ${formatDate(p.created_at)}</span>
+          <span class="post-stat">👁 ${p.view_count||0}</span>
+          <span class="post-stat">💬 ${p.comment_count||0}</span>
+          <span class="post-stat">♥ ${p.like_count||0}</span>
+        </div>
+      </div>`).join('');
+
+  document.getElementById('page').innerHTML = `
+    <div class="profile-card">
+      <div class="avatar-wrap">
+        <div class="avatar" id="avatar-el">${avatarHtml}</div>
+        ${editAvatar}
+        <input type="file" id="avatar-file-input" class="avatar-file-input" accept="image/jpeg,image/png,image/webp">
+      </div>
+      <div class="profile-info">
+        <div class="profile-top">
+          <div class="profile-names">
+            <div class="profile-nickname">${esc(u.nickname || u.username)}</div>
+            ${(u.nickname && isOwn) ? `<div class="profile-username">账号：${esc(u.username)}</div>` : ''}
+          </div>
+          ${editBtn}
+        </div>
+        ${instHtml ? `<div class="profile-instruments">${instHtml}</div>` : ''}
+        <div class="profile-bio ${u.bio ? '' : 'empty'}">${u.bio ? esc(u.bio) : (isOwn ? '点击「编辑资料」添加简介' : '该用户还没有填写简介')}</div>
+        <div class="profile-stats">
+          <div class="profile-stat"><div class="profile-stat-num">${u.post_count||0}</div><div class="profile-stat-label">投稿</div></div>
+          <div class="profile-stat"><div class="profile-stat-num">${u.like_count||0}</div><div class="profile-stat-label">获赞</div></div>
+          <div class="profile-stat"><div class="profile-stat-num" style="font-size:13px;font-weight:400">${formatDate(u.created_at)}</div><div class="profile-stat-label">加入时间</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">投稿</div>
+      <div class="section-count">${posts.length} 篇</div>
+    </div>
+    <div class="post-list">${postListHtml}</div>
+  `;
+
+  // Bind avatar upload
+  if (isOwn) {
+    document.getElementById('avatar-file-input').addEventListener('change', uploadAvatar);
+  }
+}
+
+// ── Avatar crop & upload ──────────────────────────────────────
+let cropperInstance = null;
+
+function openCrop(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const overlay = document.getElementById('crop-overlay');
+    const img     = document.getElementById('crop-img');
+    // Destroy previous cropper
+    if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+    img.src = e.target.result;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    // Init Cropper after image loads
+    img.onload = () => {
+      cropperInstance = new Cropper(img, {
+        aspectRatio: 1,          // square crop
+        viewMode: 1,              // crop box can't exceed canvas
+        dragMode: 'move',         // drag the image, not the box
+        autoCropArea: 0.85,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: false,    // fixed box, move image instead
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+      });
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+function closeCrop() {
+  document.getElementById('crop-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+  // Reset file input so same file can be re-selected
+  const fi = document.getElementById('avatar-file-input');
+  if (fi) fi.value = '';
+}
+
+async function confirmCrop() {
+  if (!cropperInstance) return;
+  const btn = document.getElementById('btn-crop-confirm');
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    // Get cropped canvas at 400×400
+    const canvas = cropperInstance.getCroppedCanvas({ width: 400, height: 400, imageSmoothingQuality: 'high' });
+    const blob   = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+    const fd     = new FormData();
+    fd.append('avatar', blob, 'avatar.jpg');
+    const res  = await fetch('/api/profile/avatar', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || '上传失败', 'error'); return; }
+    closeCrop();
+    const el = document.getElementById('avatar-el');
+    if (el) el.innerHTML = `<img src="${data.avatar}?t=${Date.now()}" alt="avatar">`;
+    showToast('头像已更新');
+  } catch(e) { showToast('上传失败，请重试', 'error'); }
+  finally { btn.classList.remove('loading'); btn.disabled = false; }
+}
+
+function uploadAvatar(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  openCrop(file);
+}
+
+// ── Edit modal ────────────────────────────────────────────────
+let tags = [];
+
+function openModal() {
+  if (!profileData) return;
+  document.getElementById('edit-nickname').value = profileData.nickname || '';
+  document.getElementById('edit-bio').value      = profileData.bio || '';
+  tags = profileData.instruments ? profileData.instruments.split(',').filter(s => s.trim()) : [];
+  renderTags();
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('edit-nickname').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// Tag editor
+function renderTags() {
+  const wrap = document.getElementById('tags-wrap');
+  const input = document.getElementById('tag-input');
+  wrap.querySelectorAll('.tag-item').forEach(t => t.remove());
+  tags.forEach((tag, i) => {
+    const el = document.createElement('div');
+    el.className = 'tag-item';
+    el.innerHTML = `${esc(tag)}<button class="tag-remove" data-i="${i}">×</button>`;
+    wrap.insertBefore(el, input);
+  });
+  wrap.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', () => { tags.splice(Number(btn.dataset.i), 1); renderTags(); });
+  });
+}
+
+function focusTagInput() { document.getElementById('tag-input').focus(); }
+
+document.getElementById('tag-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,/g,'');
+    if (val && !tags.includes(val) && tags.length < 10) { tags.push(val); renderTags(); }
+    e.target.value = '';
+  } else if (e.key === 'Backspace' && !e.target.value && tags.length) {
+    tags.pop(); renderTags();
+  }
+});
+
+document.getElementById('tag-input').addEventListener('focus',  () => document.getElementById('tags-wrap').classList.add('focus'));
+document.getElementById('tag-input').addEventListener('blur',   () => {
+  // Add pending tag on blur
+  const val = document.getElementById('tag-input').value.trim().replace(/,/g,'');
+  if (val && !tags.includes(val) && tags.length < 10) { tags.push(val); renderTags(); document.getElementById('tag-input').value = ''; }
+  document.getElementById('tags-wrap').classList.remove('focus');
+});
+
+async function saveProfile() {
+  const nickname    = document.getElementById('edit-nickname').value.trim();
+  const bio         = document.getElementById('edit-bio').value.trim();
+  const instruments = tags.join(',');
+  const btn = document.getElementById('btn-save');
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    const res  = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ nickname, bio, instruments })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || '保存失败', 'error'); return; }
+    profileData = { ...profileData, ...data };
+    closeModal();
+    showToast('资料已保存');
+    // Re-render profile card
+    const profRes  = await fetch('/api/profile/' + encodeURIComponent(targetUser));
+    const postsRes = await fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts');
+    profileData = await profRes.json();
+    renderPage(profileData, await postsRes.json());
+  } catch(e) { showToast('保存失败', 'error'); }
+  finally { btn.classList.remove('loading'); btn.disabled = false; }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+loadProfile();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+</body>
+</html>
