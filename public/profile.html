@@ -259,6 +259,91 @@
   }
   .btn-crop-confirm.loading span { opacity: 0; }
 
+  /* ── Toggle switch ── */
+  .toggle-wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--rule);
+  }
+  .toggle-wrap:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; color: var(--ink); }
+  .toggle-label small { display: block; font-size: 11px; font-weight: 300; color: var(--ink-faint); margin-top: 2px; }
+  .toggle-track {
+    position: relative; width: 38px; height: 22px;
+    border-radius: 11px; background: var(--rule);
+    transition: background 0.25s; cursor: pointer; flex-shrink: 0;
+  }
+  .toggle-track.on { background: var(--ink); }
+  .toggle-track.on:hover { background: var(--accent); }
+  .toggle-knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: transform 0.25s; pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-track.on .toggle-knob { transform: translateX(16px); }
+
+  /* ── Follow button ── */
+  .follow-btn {
+    padding: 8px 24px; border-radius: 20px; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    letter-spacing: 0.04em; transition: all 0.2s; white-space: nowrap;
+    border: 1.5px solid var(--ink); background: var(--ink); color: #f5f2ec;
+  }
+  .follow-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .follow-btn.following {
+    background: none; color: var(--ink-muted); border-color: var(--rule);
+  }
+  .follow-btn.following:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Content tabs ── */
+  .content-tabs {
+    display: flex; border-bottom: 1.5px solid var(--rule);
+    margin-bottom: 24px; gap: 0;
+  }
+  .content-tab {
+    padding: 11px 20px; background: none; border: none;
+    font-family: inherit; font-size: 13px; font-weight: 400;
+    color: var(--ink-muted); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1.5px;
+    transition: color 0.2s; display: flex; align-items: center; gap: 6px;
+  }
+  .content-tab:hover { color: var(--ink); }
+  .content-tab.active { color: var(--ink); font-weight: 500; border-bottom-color: var(--accent); }
+  .content-tab .tab-count {
+    font-size: 11px; font-weight: 400; color: var(--ink-faint);
+    background: var(--paper); border: 1px solid var(--rule);
+    padding: 1px 6px; border-radius: 10px;
+  }
+  .content-tab.active .tab-count { color: var(--accent); border-color: rgba(192,57,43,0.3); background: rgba(192,57,43,0.06); }
+
+  .tab-panel { display: none; animation: fadeUp 0.25s ease; }
+  .tab-panel.active { display: block; }
+
+  /* ── User card list ── */
+  .user-list { display: flex; flex-direction: column; gap: 0; }
+  .user-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 0; border-bottom: 1px solid var(--rule);
+    cursor: pointer; transition: opacity 0.15s;
+    text-decoration: none; color: inherit;
+    animation: fadeUp 0.3s ease both;
+  }
+  .user-card:last-child { border-bottom: none; }
+  .user-card:hover { opacity: 0.75; }
+  .user-card-avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    background: var(--ink); color: #f5f2ec; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif; font-size: 18px; font-weight: 500;
+  }
+  .user-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .user-card-info { flex: 1; min-width: 0; }
+  .user-card-name { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+  .user-card-bio { font-size: 12px; font-weight: 300; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-card-meta { font-size: 11px; color: var(--ink-faint); white-space: nowrap; flex-shrink: 0; }
+
+  .empty-tab { padding: 40px 0; text-align: center; font-size: 13px; font-weight: 300; color: var(--ink-faint); }
+
   @keyframes fadeUp   { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp  { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -310,6 +395,19 @@
       <div class="field-group" style="margin-bottom:0">
         <label class="field-label">简介 <span>最多 200 字</span></label>
         <textarea class="field-textarea" id="edit-bio" maxlength="200" placeholder="介绍一下你自己…"></textarea>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">
+        <div style="font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:12px">隐私设置</div>
+        <div class="toggle-wrap">
+          <div class="toggle-label">
+            公开关注和粉丝列表
+            <small>关闭后其他用户无法查看你的关注与粉丝</small>
+          </div>
+          <div class="toggle-track" id="toggle-show-follows" onclick="toggleShowFollows()">
+            <div class="toggle-knob"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -406,19 +504,40 @@ async function loadProfile() {
   }
 }
 
+function renderUserCard(u, delay = 0) {
+  const av = u.avatar && u.avatar.startsWith('/')
+    ? `<img src="${esc(u.avatar)}" alt="">`
+    : `<span>${(u.nickname || u.username || '?')[0].toUpperCase()}</span>`;
+  return `
+    <a class="user-card" href="/profile.html?user=${encodeURIComponent(u.username)}" style="animation-delay:${delay}s">
+      <div class="user-card-avatar">${av}</div>
+      <div class="user-card-info">
+        <div class="user-card-name">${esc(u.nickname || u.username)}</div>
+        <div class="user-card-bio">${u.bio ? esc(u.bio.slice(0,60)) : '暂无简介'}</div>
+      </div>
+      <div class="user-card-meta">${u.post_count || 0} 篇投稿</div>
+    </a>`;
+}
+
 function renderPage(u, posts) {
   document.title = (u.nickname || u.username) + ' · 论坛广场';
   const instruments = u.instruments ? u.instruments.split(',').filter(Boolean) : [];
-  const instHtml = instruments.map(i => `<span class="instrument-tag">${esc(i.trim())}</span>`).join('');
-  const avatarHtml = u.avatar
+  const instHtml    = instruments.map(i => `<span class="instrument-tag">${esc(i.trim())}</span>`).join('');
+  const avImg       = u.avatar && u.avatar.startsWith('/')
     ? `<img src="${esc(u.avatar)}" alt="avatar">`
     : `<span>${(u.nickname || u.username)[0].toUpperCase()}</span>`;
 
-  const editBtn  = isOwn ? `<button class="edit-profile-btn" onclick="openModal()">编辑资料</button>` : '';
+  const editBtn    = isOwn ? `<button class="edit-profile-btn" onclick="openModal()">编辑资料</button>` : '';
   const editAvatar = isOwn ? `<button class="avatar-edit-btn show" onclick="document.getElementById('avatar-file-input').click()" title="更换头像">✎</button>` : '';
+  const followBtn  = (!isOwn && token && !isAdmin)
+    ? `<button class="follow-btn ${u.is_following ? 'following' : ''}" id="follow-btn"
+         onclick="toggleFollow('${esc(u.username)}')">
+         ${u.is_following ? '已关注' : '+ 关注'}
+       </button>`
+    : '';
 
   const postListHtml = posts.length === 0
-    ? `<div class="state-msg" style="padding:40px 0"><div class="icon" style="font-size:24px;margin-bottom:10px">✦</div><div>${isOwn ? '你还没有发布任何投稿' : '该用户暂无公开投稿'}</div></div>`
+    ? `<div class="empty-tab">${isOwn ? '你还没有发布任何投稿' : '该用户暂无公开投稿'}</div>`
     : posts.map((p, i) => `
       <div class="post-item" style="animation-delay:${i*0.04}s" onclick="window.location.href='/article.html?id=${p.id}'">
         <div class="post-title">${esc(p.title)}</div>
@@ -434,7 +553,7 @@ function renderPage(u, posts) {
   document.getElementById('page').innerHTML = `
     <div class="profile-card">
       <div class="avatar-wrap">
-        <div class="avatar" id="avatar-el">${avatarHtml}</div>
+        <div class="avatar" id="avatar-el">${avImg}</div>
         ${editAvatar}
         <input type="file" id="avatar-file-input" class="avatar-file-input" accept="image/jpeg,image/png,image/webp">
       </div>
@@ -444,29 +563,132 @@ function renderPage(u, posts) {
             <div class="profile-nickname">${esc(u.nickname || u.username)}</div>
             ${(u.nickname && isOwn) ? `<div class="profile-username">账号：${esc(u.username)}</div>` : ''}
           </div>
-          ${editBtn}
+          <div style="display:flex;gap:10px;align-items:center">
+            ${followBtn}
+            ${editBtn}
+          </div>
         </div>
         ${instHtml ? `<div class="profile-instruments">${instHtml}</div>` : ''}
         <div class="profile-bio ${u.bio ? '' : 'empty'}">${u.bio ? esc(u.bio) : (isOwn ? '点击「编辑资料」添加简介' : '该用户还没有填写简介')}</div>
         <div class="profile-stats">
           <div class="profile-stat"><div class="profile-stat-num">${u.post_count||0}</div><div class="profile-stat-label">投稿</div></div>
           <div class="profile-stat"><div class="profile-stat-num">${u.like_count||0}</div><div class="profile-stat-label">获赞</div></div>
-          <div class="profile-stat"><div class="profile-stat-num" style="font-size:13px;font-weight:400">${formatDate(u.created_at)}</div><div class="profile-stat-label">加入时间</div></div>
+          <div class="profile-stat" id="stat-followers" style="cursor:pointer" onclick="switchTab('followers')">
+            <div class="profile-stat-num" id="follower-count">${u.follower_count||0}</div>
+            <div class="profile-stat-label">粉丝</div>
+          </div>
+          <div class="profile-stat" id="stat-following" style="cursor:pointer" onclick="switchTab('following')">
+            <div class="profile-stat-num">${u.following_count||0}</div>
+            <div class="profile-stat-label">关注</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="section-header">
-      <div class="section-title">投稿</div>
-      <div class="section-count">${posts.length} 篇</div>
+    <!-- Content tabs -->
+    <div class="content-tabs">
+      <button class="content-tab active" id="tab-posts"     onclick="switchTab('posts')">
+        投稿 <span class="tab-count">${posts.length}</span>
+      </button>
+      <button class="content-tab" id="tab-following"  onclick="switchTab('following')">
+        关注 ${!u.show_follows && !isOwn ? '🔒 ' : ''}<span class="tab-count" id="tc-following">${u.following_count||0}</span>
+      </button>
+      <button class="content-tab" id="tab-followers"  onclick="switchTab('followers')">
+        粉丝 ${!u.show_follows && !isOwn ? '🔒 ' : ''}<span class="tab-count" id="tc-followers">${u.follower_count||0}</span>
+      </button>
     </div>
-    <div class="post-list">${postListHtml}</div>
+
+    <div class="tab-panel active" id="panel-posts">
+      <div class="post-list">${postListHtml}</div>
+    </div>
+    <div class="tab-panel" id="panel-following">
+      <div class="user-list" id="list-following"><div class="empty-tab">加载中…</div></div>
+    </div>
+    <div class="tab-panel" id="panel-followers">
+      <div class="user-list" id="list-followers"><div class="empty-tab">加载中…</div></div>
+    </div>
   `;
 
-  // Bind avatar upload
   if (isOwn) {
     document.getElementById('avatar-file-input').addEventListener('change', uploadAvatar);
   }
+}
+
+// ── Tab switching ────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'following') loadFollowing();
+  if (name === 'followers') loadFollowers();
+}
+
+async function loadFollowing() {
+  const el = document.getElementById('list-following');
+  if (!el || el.dataset.loaded) return;
+  try {
+    const res  = await fetch('/api/profile/' + encodeURIComponent(targetUser) + '/following',
+      { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+    if (res.status === 403) {
+      el.dataset.loaded = '1';
+      el.innerHTML = '<div class="empty-tab" style="opacity:0.5">🔒 该用户已隐藏关注列表</div>';
+      return;
+    }
+    const list = await res.json();
+    el.dataset.loaded = '1';
+    el.innerHTML = list.length
+      ? list.map((u, i) => renderUserCard(u, i * 0.04)).join('')
+      : `<div class="empty-tab">${isOwn ? '你还没有关注任何人' : '该用户暂未关注任何人'}</div>`;
+  } catch(e) { el.innerHTML = '<div class="empty-tab">加载失败</div>'; }
+}
+
+async function loadFollowers() {
+  const el = document.getElementById('list-followers');
+  if (!el || el.dataset.loaded) return;
+  try {
+    const res  = await fetch('/api/profile/' + encodeURIComponent(targetUser) + '/followers',
+      { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+    if (res.status === 403) {
+      el.dataset.loaded = '1';
+      el.innerHTML = '<div class="empty-tab" style="opacity:0.5">🔒 该用户已隐藏粉丝列表</div>';
+      return;
+    }
+    const list = await res.json();
+    el.dataset.loaded = '1';
+    el.innerHTML = list.length
+      ? list.map((u, i) => renderUserCard(u, i * 0.04)).join('')
+      : `<div class="empty-tab">${isOwn ? '还没有人关注你' : '该用户暂无粉丝'}</div>`;
+  } catch(e) { el.innerHTML = '<div class="empty-tab">加载失败</div>'; }
+}
+
+// ── Follow toggle ────────────────────────────────────────────
+async function toggleFollow(username) {
+  if (!token) { window.location.href = '/'; return; }
+  const btn = document.getElementById('follow-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/api/follow/' + encodeURIComponent(username), {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || '操作失败', 'error'); return; }
+    const isNowFollowing = data.following;
+    btn.textContent = isNowFollowing ? '已关注' : '+ 关注';
+    btn.className = 'follow-btn' + (isNowFollowing ? ' following' : '');
+    // Update follower count
+    const fc = document.getElementById('follower-count');
+    const tc = document.getElementById('tc-followers');
+    if (fc) fc.textContent = data.follower_count;
+    if (tc) tc.textContent = data.follower_count;
+    // Invalidate followers cache so it reloads
+    const el = document.getElementById('list-followers');
+    if (el) delete el.dataset.loaded;
+    showToast(isNowFollowing ? '已关注' : '已取消关注');
+  } catch(e) { showToast('操作失败', 'error'); }
+  finally { btn.disabled = false; }
 }
 
 // ── Avatar crop & upload ──────────────────────────────────────
@@ -549,6 +771,12 @@ function openModal() {
   document.getElementById('edit-bio').value      = profileData.bio || '';
   tags = profileData.instruments ? profileData.instruments.split(',').filter(s => s.trim()) : [];
   renderTags();
+  // Init privacy toggle
+  const track = document.getElementById('toggle-show-follows');
+  if (track) {
+    const isOn = profileData.show_follows !== 0;
+    track.classList.toggle('on', isOn);
+  }
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('edit-nickname').focus(), 100);
@@ -600,6 +828,11 @@ document.getElementById('tag-input').addEventListener('blur',   () => {
   document.getElementById('tags-wrap').classList.remove('focus');
 });
 
+function toggleShowFollows() {
+  const track = document.getElementById('toggle-show-follows');
+  if (track) track.classList.toggle('on');
+}
+
 async function saveProfile() {
   const nickname    = document.getElementById('edit-nickname').value.trim();
   const bio         = document.getElementById('edit-bio').value.trim();
@@ -610,7 +843,7 @@ async function saveProfile() {
     const res  = await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ nickname, bio, instruments })
+      body: JSON.stringify({ nickname, bio, instruments, show_follows: document.getElementById('toggle-show-follows')?.classList.contains('on') ? 1 : 0 })
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || '保存失败', 'error'); return; }

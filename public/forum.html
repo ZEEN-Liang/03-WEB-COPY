@@ -234,6 +234,39 @@
   }
   .post-item:hover .post-arrow { color: var(--accent); transform: translateX(4px); }
 
+  /* ── Sort bar ── */
+  .sort-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+  }
+  .sort-tabs {
+    display: flex; gap: 2px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 3px;
+  }
+  .sort-tab {
+    padding: 6px 14px; border: none; border-radius: 4px;
+    font-family: 'Noto Sans SC', sans-serif; font-size: 12px; font-weight: 400;
+    color: var(--ink-muted); background: none; cursor: pointer;
+    transition: all 0.15s; letter-spacing: 0.02em; white-space: nowrap;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .sort-tab:hover { color: var(--ink); }
+  .sort-tab.active {
+    background: var(--card-bg); color: var(--ink); font-weight: 500;
+    box-shadow: 0 1px 3px rgba(26,24,20,0.08);
+  }
+  .sort-tab .sort-icon { font-size: 13px; }
+
+  .sort-info {
+    font-size: 12px; font-weight: 300; color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  /* Highlight the sorted stat in each post item */
+  .post-stat.highlight { color: var(--accent); font-weight: 400; }
+  .post-stat.highlight .post-stat-icon { opacity: 1; }
+
   /* ── Modal overlay ── */
   .modal-overlay {
     display: none;
@@ -380,6 +413,25 @@
     <div class="post-count" id="post-count"></div>
   </div>
 
+  <!-- Sort bar -->
+  <div class="sort-bar">
+    <div class="sort-tabs" id="sort-tabs">
+      <button class="sort-tab active" data-sort="latest"   onclick="setSort('latest',this)">
+        <span class="sort-icon">🕐</span> 最新
+      </button>
+      <button class="sort-tab" data-sort="views"    onclick="setSort('views',this)">
+        <span class="sort-icon">👁</span> 最多浏览
+      </button>
+      <button class="sort-tab" data-sort="likes"    onclick="setSort('likes',this)">
+        <span class="sort-icon">♥</span> 最多点赞
+      </button>
+      <button class="sort-tab" data-sort="comments" onclick="setSort('comments',this)">
+        <span class="sort-icon">💬</span> 最多评论
+      </button>
+    </div>
+    <div class="sort-info" id="sort-info"></div>
+  </div>
+
   <div id="list-area">
     <div class="state-msg" id="loading-msg">
       <div class="icon">◌</div>
@@ -411,6 +463,17 @@
 </div>
 
 <script>
+// ── Sort state ──────────────────────────────────────────────
+let currentSort = 'latest';
+
+function setSort(sort, el) {
+  if (sort === currentSort) return;
+  currentSort = sort;
+  document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  loadPosts();
+}
+
 // ── Auth state ──────────────────────────────────────────────
 const token    = localStorage.getItem('token');
 const username = localStorage.getItem('username');
@@ -466,11 +529,11 @@ function isImage(mime) { return mime && mime.startsWith('image/'); }
 
 // ── Load posts ───────────────────────────────────────────────
 async function loadPosts() {
+  const area = document.getElementById('list-area');
+  area.innerHTML = '<div class="state-msg"><div class="icon" style="opacity:0.3">◌</div><p>加载中…</p></div>';
   try {
-    const res = await fetch('/api/posts');
+    const res = await fetch('/api/posts?sort=' + currentSort);
     const posts = await res.json();
-
-    const area = document.getElementById('list-area');
 
     if (!posts.length) {
       area.innerHTML = `
@@ -482,7 +545,9 @@ async function loadPosts() {
       return;
     }
 
+    const sortLabel = { latest:'最新', views:'最多浏览', likes:'最多点赞', comments:'最多评论' };
     document.getElementById('post-count').textContent = `共 ${posts.length} 篇`;
+    document.getElementById('sort-info').textContent  = posts.length ? `按${sortLabel[currentSort]}排列` : '';
 
     const list = document.createElement('div');
     list.className = 'post-list';
@@ -513,9 +578,9 @@ async function loadPosts() {
           ${excerpt ? `<div class="post-excerpt">${excerpt}</div>` : ''}
           <div class="post-footer">
             ${hasFiles ? `<span class="post-tag has-files">📎 ${p.attachment_count} 个附件</span>` : ''}
-            <span class="post-stat"><span class="post-stat-icon">👁</span>${p.view_count || 0}</span>
-            <span class="post-stat"><span class="post-stat-icon">💬</span>${p.comment_count || 0}</span>
-            <span class="post-stat"><span class="post-stat-icon">♥</span>${p.like_count || 0}</span>
+            <span class="post-stat ${currentSort==='views'    ? 'highlight' : ''}"><span class="post-stat-icon">👁</span>${p.view_count    || 0}</span>
+            <span class="post-stat ${currentSort==='comments' ? 'highlight' : ''}"><span class="post-stat-icon">💬</span>${p.comment_count || 0}</span>
+            <span class="post-stat ${currentSort==='likes'    ? 'highlight' : ''}"><span class="post-stat-icon">♥</span>${p.like_count    || 0}</span>
           </div>
         </div>
         <div class="post-arrow">›</div>

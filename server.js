@@ -228,7 +228,8 @@ async function startServer() {
     ["ALTER TABLE users ADD COLUMN nickname    TEXT DEFAULT NULL", "nickname"],
     ["ALTER TABLE users ADD COLUMN bio         TEXT DEFAULT NULL", "bio"],
     ["ALTER TABLE users ADD COLUMN instruments TEXT DEFAULT NULL", "instruments"],
-    ["ALTER TABLE users ADD COLUMN avatar      TEXT DEFAULT NULL", "avatar"],
+    ["ALTER TABLE users ADD COLUMN avatar       TEXT    DEFAULT NULL", "avatar"],
+    ["ALTER TABLE users ADD COLUMN show_follows INTEGER DEFAULT 1",    "show_follows"],
   ]) {
     try {
       db.run(col);
@@ -237,6 +238,17 @@ async function startServer() {
     } catch(e) { /* column already exists */ }
   }
   if (profileColsChanged) saveDb();
+
+  // follows table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS follows (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      follower_id INTEGER NOT NULL,
+      followee_id INTEGER NOT NULL,
+      created_at  TEXT DEFAULT (datetime('now')),
+      UNIQUE(follower_id, followee_id)
+    )
+  `);
 
   // Add parent_id to comments if not exists (for replies)
   try {
@@ -365,8 +377,11 @@ async function startServer() {
   });
 
   // GET /api/posts — public feed, only published
+  // ?sort=latest|views|likes|comments   ?limit=N
   app.get('/api/posts', (req, res) => {
-    // Fetch posts + user info without GROUP BY to avoid sql.js column stripping
+    const sort  = req.query.sort  || 'latest';
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
     const posts = dbAll(`
       SELECT p.id, p.title, p.content, p.created_at, p.status,
              u.username,
@@ -376,9 +391,10 @@ async function startServer() {
       JOIN users u ON p.user_id = u.id
       WHERE p.status = 'published'
       ORDER BY p.created_at DESC
-      LIMIT 50
-    `);
-    // Attach counts per post individually
+      LIMIT ?
+    `, [limit]);
+
+    // Attach counts
     const result = posts.map(p => ({
       ...p,
       attachment_count: dbGet('SELECT COUNT(*) as n FROM attachments WHERE post_id=?', [p.id]).n,
@@ -386,7 +402,17 @@ async function startServer() {
       comment_count:    dbGet('SELECT COUNT(*) as n FROM comments    WHERE post_id=?', [p.id]).n,
       like_count:       dbGet("SELECT COUNT(*) as n FROM likes WHERE target='post' AND target_id=?", [p.id]).n,
     }));
-    res.json(result);
+
+    // Sort in JS after counts are attached (avoids GROUP BY issues)
+    const sorted = result.sort((a, b) => {
+      if (sort === 'views')    return b.view_count    - a.view_count;
+      if (sort === 'likes')    return b.like_count    - a.like_count;
+      if (sort === 'comments') return b.comment_count - a.comment_count;
+      // latest (default)
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    res.json(sorted);
   });
 
   // GET /api/posts/:id — single post, respects status, records view
@@ -621,18 +647,28 @@ async function startServer() {
   // GET /api/profile/:username — public profile
   app.get('/api/profile/:username', (req, res) => {
     const user = dbGet(
-      'SELECT id, username, nickname, bio, instruments, avatar, created_at FROM users WHERE username = ?',
+      'SELECT id, username, nickname, bio, instruments, avatar, show_follows, created_at FROM users WHERE username = ?',
       [req.params.username]
     );
     if (!user) return res.status(404).json({ error: '用户不存在' });
-    const postCount = dbGet(
-      "SELECT COUNT(*) as n FROM posts WHERE user_id = ? AND status = 'published'", [user.id]
-    ).n;
-    const likeCount = dbGet(
-      "SELECT COUNT(*) as n FROM likes WHERE target='post' AND target_id IN (SELECT id FROM posts WHERE user_id = ?)",
-      [user.id]
-    ).n;
-    res.json({ ...user, post_count: postCount, like_count: likeCount });
+    const post_count      = dbGet("SELECT COUNT(*) as n FROM posts WHERE user_id = ? AND status = 'published'", [user.id]).n;
+    const like_count      = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='post' AND target_id IN (SELECT id FROM posts WHERE user_id = ?)", [user.id]).n;
+    const follower_count  = dbGet('SELECT COUNT(*) as n FROM follows WHERE followee_id = ?', [user.id]).n;
+    const following_count = dbGet('SELECT COUNT(*) as n FROM follows WHERE follower_id = ?', [user.id]).n;
+
+    // Check if current viewer is following this user
+    let is_following = false;
+    const authHdr = req.headers.authorization;
+    if (authHdr && authHdr.startsWith('Bearer ')) {
+      try {
+        const payload = jwt.verify(authHdr.slice(7), JWT_SECRET);
+        if (!payload.isAdmin) {
+          is_following = !!dbGet('SELECT id FROM follows WHERE follower_id=? AND followee_id=?', [payload.id, user.id]);
+        }
+      } catch(e) {}
+    }
+
+    res.json({ ...user, post_count, like_count, follower_count, following_count, is_following });
   });
 
   // GET /api/profile/:username/posts — public posts by user
@@ -656,23 +692,97 @@ async function startServer() {
     res.json(posts);
   });
 
+  // POST /api/follow/:username — toggle follow
+  app.post('/api/follow/:username', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号无法关注用户' });
+    const target = dbGet('SELECT id FROM users WHERE username = ?', [req.params.username]);
+    if (!target) return res.status(404).json({ error: '用户不存在' });
+    if (target.id === req.user.id) return res.status(400).json({ error: '不能关注自己' });
+
+    const existing = dbGet('SELECT id FROM follows WHERE follower_id=? AND followee_id=?', [req.user.id, target.id]);
+    if (existing) {
+      db.run('DELETE FROM follows WHERE follower_id=? AND followee_id=?', [req.user.id, target.id]);
+      saveDb();
+      const follower_count = dbGet('SELECT COUNT(*) as n FROM follows WHERE followee_id=?', [target.id]).n;
+      return res.json({ following: false, follower_count });
+    } else {
+      db.run('INSERT INTO follows (follower_id, followee_id) VALUES (?, ?)', [req.user.id, target.id]);
+      saveDb();
+      const follower_count = dbGet('SELECT COUNT(*) as n FROM follows WHERE followee_id=?', [target.id]).n;
+      return res.json({ following: true, follower_count });
+    }
+  });
+
+  // GET /api/profile/:username/following — who this user follows
+  app.get('/api/profile/:username/following', (req, res) => {
+    const user = dbGet('SELECT id, show_follows FROM users WHERE username = ?', [req.params.username]);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    // Check if viewer is the owner
+    const authHdr = req.headers.authorization;
+    let viewerIsOwner = false;
+    if (authHdr && authHdr.startsWith('Bearer ')) {
+      try {
+        const p = jwt.verify(authHdr.slice(7), JWT_SECRET);
+        viewerIsOwner = !p.isAdmin && p.id === user.id;
+      } catch(e) {}
+    }
+    if (!viewerIsOwner && !user.show_follows)
+      return res.status(403).json({ error: 'hidden' });
+    const list = dbAll(`
+      SELECT u.username, u.nickname, u.avatar, u.bio,
+             (SELECT COUNT(*) FROM posts WHERE user_id = u.id AND status = 'published') as post_count
+      FROM follows f
+      JOIN users u ON f.followee_id = u.id
+      WHERE f.follower_id = ?
+      ORDER BY f.created_at DESC
+    `, [user.id]);
+    res.json(list);
+  });
+
+  // GET /api/profile/:username/followers — who follows this user
+  app.get('/api/profile/:username/followers', (req, res) => {
+    const user = dbGet('SELECT id, show_follows FROM users WHERE username = ?', [req.params.username]);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    const authHdr = req.headers.authorization;
+    let viewerIsOwner = false;
+    if (authHdr && authHdr.startsWith('Bearer ')) {
+      try {
+        const p = jwt.verify(authHdr.slice(7), JWT_SECRET);
+        viewerIsOwner = !p.isAdmin && p.id === user.id;
+      } catch(e) {}
+    }
+    if (!viewerIsOwner && !user.show_follows)
+      return res.status(403).json({ error: 'hidden' });
+    const list = dbAll(`
+      SELECT u.username, u.nickname, u.avatar, u.bio,
+             (SELECT COUNT(*) FROM posts WHERE user_id = u.id AND status = 'published') as post_count
+      FROM follows f
+      JOIN users u ON f.follower_id = u.id
+      WHERE f.followee_id = ?
+      ORDER BY f.created_at DESC
+    `, [user.id]);
+    res.json(list);
+  });
+
   // PATCH /api/profile — update own profile
   app.patch('/api/profile', requireAuth, (req, res) => {
     if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号无个人主页' });
-    const { nickname, bio, instruments } = req.body;
+    const { nickname, bio, instruments, show_follows } = req.body;
     if (nickname !== undefined && nickname.trim().length > 30)
       return res.status(400).json({ error: '昵称不能超过 30 字' });
     if (bio !== undefined && bio.trim().length > 200)
       return res.status(400).json({ error: '简介不能超过 200 字' });
-    db.run('UPDATE users SET nickname=?, bio=?, instruments=? WHERE id=?', [
-      nickname    !== undefined ? (nickname.trim()    || null) : dbGet('SELECT nickname    FROM users WHERE id=?',[req.user.id]).nickname,
-      bio         !== undefined ? (bio.trim()         || null) : dbGet('SELECT bio         FROM users WHERE id=?',[req.user.id]).bio,
-      instruments !== undefined ? (instruments.trim() || null) : dbGet('SELECT instruments FROM users WHERE id=?',[req.user.id]).instruments,
+    const cur = dbGet('SELECT nickname, bio, instruments, show_follows FROM users WHERE id=?', [req.user.id]);
+    db.run('UPDATE users SET nickname=?, bio=?, instruments=?, show_follows=? WHERE id=?', [
+      nickname    !== undefined ? (nickname.trim()    || null) : cur.nickname,
+      bio         !== undefined ? (bio.trim()         || null) : cur.bio,
+      instruments !== undefined ? (instruments.trim() || null) : cur.instruments,
+      show_follows !== undefined ? (show_follows ? 1 : 0)     : cur.show_follows,
       req.user.id
     ]);
     saveDb();
     const updated = dbGet(
-      'SELECT id, username, nickname, bio, instruments, avatar FROM users WHERE id=?', [req.user.id]
+      'SELECT id, username, nickname, bio, instruments, avatar, show_follows FROM users WHERE id=?', [req.user.id]
     );
     res.json(updated);
   });
