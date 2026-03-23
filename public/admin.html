@@ -295,6 +295,43 @@
     color: #6ab4e8;
     text-shadow: 0 0 12px rgba(74,143,196,0.7), 0 0 24px rgba(74,143,196,0.3);
   }
+
+  /* ── Music panel ── */
+  .music-panel { display: none; }
+  .music-panel.active { display: block; animation: fadeUp 0.3s ease; }
+  .music-upload-card {
+    background: var(--card-bg); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 24px 28px; margin-bottom: 20px;
+  }
+  .music-upload-card h3 { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 16px; }
+  .music-upload-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .music-field { display: flex; flex-direction: column; gap: 5px; }
+  .music-field label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+  .music-field input[type=text] {
+    padding: 8px 12px; border: 1.5px solid var(--rule); border-radius: 3px;
+    font-family: inherit; font-size: 13px; color: var(--ink); background: #fff;
+    outline: none; transition: border-color 0.2s;
+  }
+  .music-field input[type=text]:focus { border-color: var(--accent); }
+  .music-field input[type=file] { font-size: 12px; color: var(--ink-muted); }
+  .music-track-list { background: var(--card-bg); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .music-track-item {
+    display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+    border-bottom: 1px solid var(--rule); transition: background 0.15s;
+  }
+  .music-track-item:last-child { border-bottom: none; }
+  .music-track-item:hover { background: var(--paper); }
+  .music-track-num { width: 24px; font-size: 12px; color: var(--ink-faint); text-align: center; flex-shrink: 0; }
+  .music-track-info { flex: 1; min-width: 0; }
+  .music-track-title { font-size: 14px; font-weight: 400; color: var(--ink); }
+  .music-track-artist { font-size: 12px; font-weight: 300; color: var(--ink-faint); margin-top: 2px; }
+  .music-track-del {
+    padding: 5px 12px; background: none; border: 1px solid var(--rule);
+    border-radius: 3px; font-size: 12px; color: var(--ink-faint); cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .music-track-del:hover { border-color: #c0392b; color: #c0392b; }
+  .music-empty { padding: 32px; text-align: center; font-size: 13px; color: var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -303,7 +340,8 @@
 <nav class="nav">
   <a href="/admin.html" class="nav-logo">风<em class="char-lan">蓝</em>轻音部<span class="nav-badge">管理后台</span></a>
   <div class="nav-links">
-    <a href="/admin.html" class="nav-link active">投稿管理</a>
+    <a href="/admin.html" class="nav-link active" id="nav-posts">投稿管理</a>
+    <a href="#" class="nav-link" id="nav-music" onclick="showMusicPanel();return false;">曲库管理</a>
     <a href="/forum.html" class="nav-link" target="_blank">查看广场 ↗</a>
   </div>
   <div class="nav-right">
@@ -354,6 +392,32 @@
     </table>
   </div>
 
+</div>
+
+<!-- Music management panel -->
+<div class="music-panel" id="music-panel" style="max-width:860px;margin:0 auto;padding:0 24px 80px">
+  <div class="music-upload-card">
+    <h3>上传新曲目</h3>
+    <div class="music-upload-row">
+      <div class="music-field">
+        <label>曲目名称 *</label>
+        <input type="text" id="m-title" placeholder="曲目名称" style="width:180px">
+      </div>
+      <div class="music-field">
+        <label>艺术家</label>
+        <input type="text" id="m-artist" placeholder="艺术家 / 乐队" style="width:150px">
+      </div>
+      <div class="music-field">
+        <label>音频文件 (MP3/FLAC/WAV)</label>
+        <input type="file" id="m-file" accept=".mp3,.flac,.wav,.ogg,.aac,audio/*">
+      </div>
+      <button class="act-btn act-publish" style="padding:8px 20px;height:36px;align-self:flex-end" onclick="uploadTrack()">上 传</button>
+    </div>
+    <div id="m-toast" style="margin-top:10px;font-size:12px;display:none"></div>
+  </div>
+  <div class="music-track-list" id="m-track-list">
+    <div class="music-empty">加载中…</div>
+  </div>
 </div>
 
 <!-- Preview Drawer -->
@@ -654,8 +718,99 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeDrawerDirect(); closeConfirm(); }
 });
 
+// ── Music management ─────────────────────────────────────────
+function showMusicPanel() {
+  document.getElementById('music-panel').classList.add('active');
+  document.getElementById('nav-music').classList.add('active');
+  document.getElementById('nav-posts').classList.remove('active');
+  ['stats-row','toolbar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  var tbl = document.querySelector('.table-wrap');
+  if (tbl) tbl.style.display = 'none';
+  loadMusicList();
+}
+
+function showPostsPanel() {
+  document.getElementById('music-panel').classList.remove('active');
+  document.getElementById('nav-music').classList.remove('active');
+  document.getElementById('nav-posts').classList.add('active');
+  ['stats-row','toolbar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  var tbl = document.querySelector('.table-wrap');
+  if (tbl) tbl.style.display = '';
+}
+
+async function loadMusicList() {
+  var el = document.getElementById('m-track-list');
+  try {
+    var res    = await fetch('/api/music');
+    var tracks = await res.json();
+    if (!tracks.length) { el.innerHTML = '<div class="music-empty">暂无曲目，请上传音频文件</div>'; return; }
+    el.innerHTML = tracks.map(function(t, i) {
+      return '<div class="music-track-item">' +
+        '<span class="music-track-num">' + (i+1) + '</span>' +
+        '<div class="music-track-info">' +
+          '<div class="music-track-title">' + escHtml(t.title) + '</div>' +
+          (t.artist ? '<div class="music-track-artist">' + escHtml(t.artist) + '</div>' : '') +
+        '</div>' +
+        '<button class="music-track-del" onclick="deleteTrack(' + t.id + ')">删除</button>' +
+      '</div>';
+    }).join('');
+  } catch(e) { el.innerHTML = '<div class="music-empty">加载失败</div>'; }
+}
+
+async function uploadTrack() {
+  var title  = document.getElementById('m-title').value.trim();
+  var artist = document.getElementById('m-artist').value.trim();
+  var file   = document.getElementById('m-file').files[0];
+  if (!title) { showMToast('请填写曲目名称', '#c0392b'); return; }
+  if (!file)  { showMToast('请选择音频文件', '#c0392b'); return; }
+  var fd = new FormData();
+  fd.append('file', file); fd.append('title', title);
+  if (artist) fd.append('artist', artist);
+  showMToast('上传中…', 'var(--ink-muted)');
+  try {
+    var res  = await fetch('/api/music', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+      body: fd
+    });
+    var data = await res.json();
+    if (!res.ok) { showMToast(data.error || '上传失败', '#c0392b'); return; }
+    showMToast('✓ 上传成功：' + data.title, '#27ae60');
+    document.getElementById('m-title').value  = '';
+    document.getElementById('m-artist').value = '';
+    document.getElementById('m-file').value   = '';
+    loadMusicList();
+  } catch(e) { showMToast('上传失败', '#c0392b'); }
+}
+
+async function deleteTrack(id) {
+  if (!confirm('确认删除该曲目？删除后无法恢复。')) return;
+  await fetch('/api/music/' + id, {
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+  });
+  loadMusicList();
+}
+
+function showMToast(msg, color) {
+  var t = document.getElementById('m-toast');
+  t.textContent = msg; t.style.color = color; t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.style.display = 'none'; }, 3500);
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 // ── Init ─────────────────────────────────────────────────────
 loadAll();
 </script>
+
+<script src="/player.js"></script>
 </body>
 </html>

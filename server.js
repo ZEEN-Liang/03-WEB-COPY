@@ -21,12 +21,18 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/avatars', express.static(path.join(__dirname, 'avatars')));
+app.use('/music',   express.static(path.join(__dirname, 'music'), {
+  maxAge: '7d',          // browser caches audio for 7 days
+  immutable: false
+}));
 
 // ── Upload directory ────────────────────────────────────────
 const uploadDir  = path.join(__dirname, 'uploads');
 const avatarDir  = path.join(__dirname, 'avatars');
+const musicDir   = path.join(__dirname, 'music');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir);
+if (!fs.existsSync(musicDir))  fs.mkdirSync(musicDir);
 
 // ── Multer config ───────────────────────────────────────────
 const ALLOWED_MIME = [
@@ -70,12 +76,31 @@ function safeExt(mimetype) {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
     'application/vnd.ms-powerpoint': '.ppt',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-    'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
-    'audio/flac': '.flac', 'audio/aac': '.aac',
+    'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
+    'audio/flac': '.flac', 'audio/x-flac': '.flac', 'audio/aac': '.aac',
     'video/mp4': '.mp4', 'video/webm': '.webm', 'video/ogg': '.ogv',
   };
   return map[mimetype] || '.bin';
 }
+
+// Music upload config
+const musicStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, musicDir),
+  filename: (req, file, cb) => {
+    const ext = safeExt(file.mimetype) || '.mp3';
+    cb(null, Date.now() + '-' + Math.random().toString(36).slice(2) + ext);
+  }
+});
+const uploadMusic = multer({
+  storage: musicStorage,
+  limits: { fileSize: 60 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['audio/mpeg','audio/mp3','audio/flac','audio/wav','audio/ogg','audio/aac','audio/x-flac'];
+    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(mp3|flac|wav|ogg|aac)$/i))
+      cb(null, true);
+    else cb(new Error('仅支持 MP3 / FLAC / WAV / OGG / AAC'));
+  }
+});
 
 // Avatar upload config
 const avatarStorage = multer.diskStorage({
@@ -239,6 +264,21 @@ async function startServer() {
     } catch(e) { /* column already exists */ }
   }
   if (profileColsChanged) saveDb();
+
+  // music table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS music (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL,
+      artist     TEXT DEFAULT NULL,
+      filename   TEXT NOT NULL,
+      duration   INTEGER DEFAULT 0,
+      cover      TEXT DEFAULT NULL,
+      sort_order INTEGER DEFAULT 0,
+      user_id    INTEGER DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
 
   // danmaku table
   db.run(`
@@ -834,6 +874,67 @@ async function startServer() {
       saveDb();
       res.json({ avatar: url });
     });
+  });
+
+  // GET /api/music — public playlist
+  app.get('/api/music', (req, res) => {
+    const tracks = dbAll(`
+      SELECT m.id, m.title, m.artist, m.filename, m.duration, m.cover, m.sort_order,
+             COALESCE(u.nickname, u.username, '匿名') as uploader
+      FROM music m
+      LEFT JOIN users u ON m.user_id = u.id
+      ORDER BY m.sort_order ASC, m.id ASC
+    `);
+    res.json(tracks.map(t => ({ ...t, url: '/music/' + t.filename })));
+  });
+
+  // POST /api/music — any logged-in user can upload
+  app.post('/api/music', requireAuth, (req, res) => {
+    uploadMusic.single('file')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: '请选择音频文件' });
+      const { title, artist } = req.body;
+      if (!title || !title.trim()) return res.status(400).json({ error: '请填写曲目名称' });
+      const uploaderId = req.user.isAdmin ? null : req.user.id;
+      db.run(
+        'INSERT INTO music (title, artist, filename, user_id) VALUES (?, ?, ?, ?)',
+        [title.trim(), artist ? artist.trim() : null, req.file.filename, uploaderId]
+      );
+      const { id } = dbGet('SELECT last_insert_rowid() as id');
+      saveDb();
+      res.status(201).json({ id, title: title.trim(), artist: artist || null, url: '/music/' + req.file.filename });
+    });
+  });
+
+  // DELETE /api/music/:id — admin or uploader can delete
+  app.delete('/api/music/:id', requireAuth, (req, res) => {
+    const track = dbGet('SELECT filename, user_id FROM music WHERE id=?', [req.params.id]);
+    if (!track) return res.status(404).json({ error: '曲目不存在' });
+    if (!req.user.isAdmin && track.user_id !== req.user.id)
+      return res.status(403).json({ error: '只能删除自己上传的曲目' });
+    try {
+      const fp = path.join(musicDir, track.filename);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    } catch(e) {}
+    db.run('DELETE FROM music WHERE id=?', [req.params.id]);
+    saveDb();
+    res.json({ message: '已删除' });
+  });
+
+  // PATCH /api/music/:id — admin update title/artist/order
+  app.patch('/api/music/:id', requireAdmin, (req, res) => {
+    const track = dbGet('SELECT id FROM music WHERE id=?', [req.params.id]);
+    if (!track) return res.status(404).json({ error: '曲目不存在' });
+    const { title, artist, sort_order } = req.body;
+    const cur = dbGet('SELECT title, artist, sort_order FROM music WHERE id=?', [req.params.id]);
+    db.run('UPDATE music SET title=?, artist=?, sort_order=? WHERE id=?', [
+      title  !== undefined ? title.trim()  : cur.title,
+      artist !== undefined ? artist.trim() || null : cur.artist,
+      sort_order !== undefined ? Number(sort_order) : cur.sort_order,
+      req.params.id
+    ]);
+    saveDb();
+    res.json({ message: '已更新' });
   });
 
   // POST /api/profile/banner — upload profile banner

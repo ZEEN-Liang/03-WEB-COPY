@@ -429,7 +429,11 @@
   @media (max-width: 600px) {
     .nav { padding: 0 16px; } .nav-user { display: none; }
     .page { padding: 32px 16px 60px; }
-    .profile-card { grid-template-columns: 1fr; gap: 20px; padding: 28px 20px; }
+    .profile-hero { padding: 24px 20px 24px; min-height: 200px; }
+    .profile-hero-content { gap: 14px; }
+    .avatar { width: 72px; height: 72px; font-size: 28px; }
+    .profile-nickname { font-size: 18px; }
+    .profile-hero-actions { top: 12px; right: 12px; gap: 6px; }
     .profile-top { flex-direction: column; }
   }
 
@@ -1050,5 +1054,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 loadProfile();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+<script src="/player.js"></script>
 </body>
 </html>
