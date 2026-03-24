@@ -94,7 +94,7 @@ const musicStorage = multer.diskStorage({
 });
 const uploadMusic = multer({
   storage: musicStorage,
-  limits: { fileSize: 60 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['audio/mpeg','audio/mp3','audio/flac','audio/wav','audio/ogg','audio/aac','audio/x-flac'];
     if (allowed.includes(file.mimetype) || file.originalname.match(/\.(mp3|flac|wav|ogg|aac)$/i))
@@ -156,6 +156,14 @@ function dbAll(sql, params = []) {
   while (stmt.step()) rows.push(stmt.getAsObject());
   stmt.free();
   return rows;
+}
+
+function createNotification(userId, fromUserId, type, targetId, message, link) {
+  if (!userId || userId === fromUserId) return; // never notify self
+  db.run(
+    'INSERT INTO notifications (user_id, from_user_id, type, target_id, message, link) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, fromUserId, type, targetId, message, link]
+  );
 }
 
 // ── Auth middleware ─────────────────────────────────────────
@@ -321,6 +329,17 @@ async function startServer() {
     console.log('✅ 已为 comments 表添加 reply_to 字段');
   } catch(e) {}
 
+  // Add parent_id to qa_answers if not exists (for replies to answers)
+  try {
+    db.run('ALTER TABLE qa_answers ADD COLUMN parent_id INTEGER DEFAULT NULL');
+    console.log('✅ 已为 qa_answers 表添加 parent_id 字段');
+  } catch(e) {}
+  // Add reply_to to qa_answers if not exists
+  try {
+    db.run('ALTER TABLE qa_answers ADD COLUMN reply_to TEXT DEFAULT NULL');
+    console.log('✅ 已为 qa_answers 表添加 reply_to 字段');
+  } catch(e) {}
+
   // Add status column to existing posts table if it doesn't exist yet
   try {
     db.run(`ALTER TABLE posts ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`);
@@ -352,6 +371,20 @@ async function startServer() {
       created_at  TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (question_id) REFERENCES qa_questions(id),
       FOREIGN KEY (user_id)     REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id      INTEGER NOT NULL,
+      from_user_id INTEGER,
+      type         TEXT NOT NULL,
+      target_id    INTEGER,
+      message      TEXT NOT NULL,
+      link         TEXT NOT NULL,
+      is_read      INTEGER NOT NULL DEFAULT 0,
+      created_at   TEXT DEFAULT (datetime('now'))
     )
   `);
 
@@ -614,7 +647,7 @@ async function startServer() {
 
     // No GROUP BY — fetch comments + user info cleanly, then attach counts separately
     const comments = dbAll(`
-      SELECT c.id, c.content, c.created_at, c.parent_id, c.reply_to,
+      SELECT c.id, c.content, c.created_at, c.parent_id, c.reply_to, c.user_id as comment_user_id,
              CASE WHEN c.user_id = -1 OR u.username IS NULL THEN 'admin' ELSE u.username END as username,
              CASE WHEN c.user_id = -1 THEN 'admin'
                   WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname
@@ -642,7 +675,7 @@ async function startServer() {
     const post = dbGet('SELECT id, status FROM posts WHERE id = ?', [req.params.id]);
     if (!post) return res.status(404).json({ error: '帖子不存在' });
     if (post.status !== 'published') return res.status(403).json({ error: '该文章暂未公开' });
-    const { content, parent_id, reply_to } = req.body;
+    const { content, parent_id, reply_to, reply_to_user_id } = req.body;
     if (!content || content.trim().length === 0)
       return res.status(400).json({ error: '评论内容不能为空' });
     if (content.trim().length > 500)
@@ -688,6 +721,26 @@ async function startServer() {
       FROM comments c JOIN users u ON c.user_id = u.id
       WHERE c.id = ?
     `, [commentId]);
+    // Notifications
+    const postInfo = dbGet('SELECT user_id, title FROM posts WHERE id=?', [req.params.id]);
+    if (postInfo) {
+      const fromName = comment ? (comment.display_name || req.user.username) : req.user.username;
+      const postLink = `/article.html?id=${req.params.id}`;
+      if (rootParentId) {
+        // Reply: notify the specific person being replied to (if provided), else root comment author
+        const notifyId = (reply_to_user_id && parseInt(reply_to_user_id) !== req.user.id)
+          ? parseInt(reply_to_user_id)
+          : dbGet('SELECT user_id FROM comments WHERE id=?', [rootParentId])?.user_id;
+        if (notifyId) {
+          createNotification(notifyId, req.user.id, 'reply', parseInt(req.params.id),
+            `${fromName} 回复了你的评论`, postLink);
+        }
+      } else {
+        // Top-level comment: notify post owner
+        createNotification(postInfo.user_id, req.user.id, 'comment', parseInt(req.params.id),
+          `${fromName} 评论了你的文章《${postInfo.title}》`, postLink);
+      }
+    }
     saveDb();
     res.status(201).json(comment);
   });
@@ -714,6 +767,22 @@ async function startServer() {
       // Like
       db.run('INSERT INTO likes (user_key, target, target_id) VALUES (?, ?, ?)',
         [userKey, target, target_id]);
+      if (target === 'post') {
+        const post = dbGet('SELECT user_id, title FROM posts WHERE id=?', [target_id]);
+        if (post) {
+          // Only notify once per user per post (skip if notification already exists)
+          const already = dbGet(
+            "SELECT id FROM notifications WHERE user_id=? AND from_user_id=? AND type='like_post' AND target_id=?",
+            [post.user_id, req.user.id, target_id]
+          );
+          if (!already) {
+            const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+            const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+            createNotification(post.user_id, req.user.id, 'like_post', target_id,
+              `${fromName} 赞了你的文章《${post.title}》`, `/article.html?id=${target_id}`);
+          }
+        }
+      }
       saveDb();
       const count = dbGet('SELECT COUNT(*) as n FROM likes WHERE target=? AND target_id=?', [target, target_id]).n;
       return res.json({ liked: true, count });
@@ -817,6 +886,23 @@ async function startServer() {
     res.json({ ...user, post_count, like_count, follower_count, following_count, is_following });
   });
 
+  // GET /api/profile/:username/questions — Q&A questions by user
+  app.get('/api/profile/:username/questions', (req, res) => {
+    const user = dbGet('SELECT id FROM users WHERE username = ?', [req.params.username]);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    const questions = dbAll(`
+      SELECT q.id, q.title, q.status, q.tags, q.created_at,
+             COUNT(DISTINCT a.id) as answer_count,
+             COUNT(DISTINCT lk.id) as vote_count
+      FROM qa_questions q
+      LEFT JOIN qa_answers a ON a.question_id = q.id
+      LEFT JOIN likes lk ON lk.target = 'qa_question' AND lk.target_id = q.id
+      WHERE q.user_id = ?
+      GROUP BY q.id ORDER BY q.created_at DESC
+    `, [user.id]);
+    res.json(questions);
+  });
+
   // GET /api/profile/:username/posts — public posts by user
   app.get('/api/profile/:username/posts', (req, res) => {
     const user = dbGet('SELECT id FROM users WHERE username = ?', [req.params.username]);
@@ -853,6 +939,10 @@ async function startServer() {
       return res.json({ following: false, follower_count });
     } else {
       db.run('INSERT INTO follows (follower_id, followee_id) VALUES (?, ?)', [req.user.id, target.id]);
+      const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+      const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+      createNotification(target.id, req.user.id, 'follow', req.user.id,
+        `${fromName} 关注了你`, `/profile.html?user=${encodeURIComponent(req.user.username)}`);
       saveDb();
       const follower_count = dbGet('SELECT COUNT(*) as n FROM follows WHERE followee_id=?', [target.id]).n;
       return res.json({ following: true, follower_count });
@@ -967,7 +1057,7 @@ async function startServer() {
     });
     const parseUpload = multer({
       storage: parseStorage,
-      limits: { fileSize: 60 * 1024 * 1024 },
+      limits: { fileSize: 100 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         if (file.originalname.match(/\.(mp3|flac|wav|ogg|aac|m4a)$/i) ||
             file.mimetype.startsWith('audio/'))
@@ -1013,10 +1103,8 @@ async function startServer() {
 
   // POST /api/music — any logged-in user can upload
   app.post('/api/music', requireAuth, (req, res) => {
-    // Use multer to parse the multipart body first (fields only, no new file)
-    // This allows us to read tmpFile even when no new file is being uploaded
-    const noFileUpload = multer().none();
-    noFileUpload(req, res, function(err) {
+    // uploadMusic.single handles both cases: file present (Branch B) or absent (Branch A)
+    uploadMusic.single('file')(req, res, (err) => {
       if (err) return res.status(400).json({ error: err.message });
 
       const { title, artist, tmpFile, duration, cover } = req.body;
@@ -1042,21 +1130,18 @@ async function startServer() {
         return res.status(201).json({ id, title: title.trim(), artist: artist||null, url: '/music/'+finalName });
       }
 
-      // ── Branch B: fresh upload (parse failed or skipped) ────
-      uploadMusic.single('file')(req, res, (err2) => {
-        if (err2) return res.status(400).json({ error: err2.message });
-        if (!req.file) return res.status(400).json({ error: '请选择音频文件' });
-        const t = req.body.title, a = req.body.artist;
-        if (!t || !t.trim()) return res.status(400).json({ error: '请填写曲目名称' });
-        const uploaderId = req.user.isAdmin ? null : req.user.id;
-        db.run(
-          'INSERT INTO music (title, artist, filename, user_id) VALUES (?, ?, ?, ?)',
-          [t.trim(), a ? a.trim() : null, req.file.filename, uploaderId]
-        );
-        const { id } = dbGet('SELECT last_insert_rowid() as id');
-        saveDb();
-        res.status(201).json({ id, title: t.trim(), artist: a||null, url: '/music/'+req.file.filename });
-      });
+      // ── Branch B: fresh upload ────────────────────────────────
+      if (!req.file) return res.status(400).json({ error: '请选择音频文件' });
+      const t = req.body.title, a = req.body.artist;
+      if (!t || !t.trim()) return res.status(400).json({ error: '请填写曲目名称' });
+      const uploaderId = req.user.isAdmin ? null : req.user.id;
+      db.run(
+        'INSERT INTO music (title, artist, filename, user_id) VALUES (?, ?, ?, ?)',
+        [t.trim(), a ? a.trim() : null, req.file.filename, uploaderId]
+      );
+      const { id } = dbGet('SELECT last_insert_rowid() as id');
+      saveDb();
+      res.status(201).json({ id, title: t.trim(), artist: a||null, url: '/music/'+req.file.filename });
     });
   });
 
@@ -1257,9 +1342,9 @@ async function startServer() {
       try { userKey = 'user:' + jwt.verify(authHeader.slice(7), JWT_SECRET).id; } catch(e) {}
     }
 
-    const answers = dbAll(`
+    const allRows = dbAll(`
       SELECT a.id, a.content, a.is_accepted, a.created_at,
-             a.user_id,
+             a.user_id, a.parent_id, a.reply_to,
              CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as display_name,
              u.username, u.avatar
       FROM qa_answers a JOIN users u ON a.user_id = u.id
@@ -1267,10 +1352,20 @@ async function startServer() {
       ORDER BY a.is_accepted DESC, a.created_at ASC
     `, [req.params.id]);
 
-    const answersOut = answers.map(a => ({
+    const addLikeInfo = a => ({
       ...a,
       like_count:    dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_answer' AND target_id=?", [a.id]).n,
       already_liked: !!dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_answer' AND target_id=?", [userKey, a.id]),
+    });
+
+    const replyMap = {};
+    allRows.filter(a => a.parent_id).forEach(r => {
+      if (!replyMap[r.parent_id]) replyMap[r.parent_id] = [];
+      replyMap[r.parent_id].push(addLikeInfo(r));
+    });
+    const answersOut = allRows.filter(a => !a.parent_id).map(a => ({
+      ...addLikeInfo(a),
+      replies: replyMap[a.id] || []
     }));
 
     const vote_count    = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_question' AND target_id=?", [req.params.id]).n;
@@ -1290,6 +1385,20 @@ async function startServer() {
       db.run("DELETE FROM likes WHERE user_key=? AND target='qa_question' AND target_id=?", [userKey, req.params.id]);
     } else {
       db.run("INSERT INTO likes (user_key, target, target_id) VALUES (?, 'qa_question', ?)", [userKey, req.params.id]);
+      // Notify question owner once per voter
+      const qv = dbGet('SELECT user_id, title FROM qa_questions WHERE id=?', [req.params.id]);
+      if (qv) {
+        const alreadyNotified = dbGet(
+          "SELECT id FROM notifications WHERE user_id=? AND from_user_id=? AND type='qa_vote' AND target_id=?",
+          [qv.user_id, req.user.id, parseInt(req.params.id)]
+        );
+        if (!alreadyNotified) {
+          const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+          const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+          createNotification(qv.user_id, req.user.id, 'qa_vote', parseInt(req.params.id),
+            `${fromName} 也有相同问题《${qv.title}》`, `/qa.html?open=${req.params.id}`);
+        }
+      }
     }
     saveDb();
     const vote_count = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_question' AND target_id=?", [req.params.id]).n;
@@ -1301,14 +1410,50 @@ async function startServer() {
     if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号不能参与回答' });
     const q = dbGet('SELECT id, status FROM qa_questions WHERE id=?', [req.params.id]);
     if (!q) return res.status(404).json({ error: '问题不存在' });
+    const { content, parent_id, reply_to } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: '请填写内容' });
+
+    if (parent_id) {
+      // Reply to an answer or to another reply
+      const parentAnswer = dbGet(
+        'SELECT id, user_id FROM qa_answers WHERE id=? AND question_id=? AND parent_id IS NULL',
+        [parent_id, q.id]
+      );
+      if (!parentAnswer) return res.status(404).json({ error: '回答不存在' });
+      db.run(
+        'INSERT INTO qa_answers (question_id, user_id, content, parent_id, reply_to) VALUES (?, ?, ?, ?, ?)',
+        [q.id, req.user.id, content.trim(), parent_id, reply_to || null]
+      );
+      const row = dbGet('SELECT last_insert_rowid() as id');
+      const qTitle = dbGet('SELECT title FROM qa_questions WHERE id=?', [q.id]);
+      const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+      const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+      // If replying to a specific reply, notify that reply's author; else notify the answer author
+      const { reply_to_user_id } = req.body;
+      const notifyUserId = (reply_to_user_id && reply_to_user_id !== req.user.id)
+        ? parseInt(reply_to_user_id)
+        : parentAnswer.user_id;
+      createNotification(notifyUserId, req.user.id, 'qa_reply', q.id,
+        `${fromName} 回复了你在《${qTitle ? qTitle.title : '问题'}》中的评论`,
+        `/qa.html?open=${q.id}`);
+      saveDb();
+      return res.json({ id: row.id });
+    }
+
+    // Top-level answer
     if (q.status === 'solved') return res.status(400).json({ error: '该问题已解决，无法继续回答' });
-    const { content } = req.body;
-    if (!content || !content.trim()) return res.status(400).json({ error: '请填写回答内容' });
     db.run(
       'INSERT INTO qa_answers (question_id, user_id, content) VALUES (?, ?, ?)',
       [q.id, req.user.id, content.trim()]
     );
     const row = dbGet('SELECT last_insert_rowid() as id');
+    const qFull = dbGet('SELECT user_id, title FROM qa_questions WHERE id=?', [q.id]);
+    if (qFull) {
+      const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+      const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+      createNotification(qFull.user_id, req.user.id, 'qa_answer', q.id,
+        `${fromName} 回答了你的问题《${qFull.title}》`, `/qa.html?open=${q.id}`);
+    }
     saveDb();
     res.json({ id: row.id });
   });
@@ -1324,6 +1469,30 @@ async function startServer() {
     if (q.status === 'solved') return res.status(400).json({ error: '该问题已经解决' });
     db.run('UPDATE qa_answers SET is_accepted=1 WHERE id=?', [answer.id]);
     db.run("UPDATE qa_questions SET status='solved' WHERE id=?", [q.id]);
+    const qTitle = dbGet('SELECT title FROM qa_questions WHERE id=?', [q.id]);
+    const qTitleStr = qTitle ? qTitle.title : '问题';
+    const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+    const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+    // Notify answer owner
+    const answerOwner = dbGet('SELECT user_id FROM qa_answers WHERE id=?', [answer.id]);
+    if (answerOwner) {
+      createNotification(answerOwner.user_id, req.user.id, 'qa_accept', q.id,
+        `${fromName} 采纳了你对《${qTitleStr}》的回答`, `/qa.html?open=${q.id}`);
+    }
+    // Notify all users who voted "我也有相同问题" on this question
+    const voters = dbAll(
+      "SELECT user_key FROM likes WHERE target='qa_question' AND target_id=?",
+      [q.id]
+    );
+    voters.forEach(row => {
+      // user_key format: 'user:123'
+      const match = String(row.user_key).match(/^user:(\d+)$/);
+      if (!match) return;
+      const voterId = parseInt(match[1]);
+      if (voterId === q.user_id) return; // don't notify the question owner twice
+      createNotification(voterId, req.user.id, 'qa_solved', q.id,
+        `你关注的问题《${qTitleStr}》已找到解答`, `/qa.html?open=${q.id}`);
+    });
     saveDb();
     res.json({ ok: true });
   });
@@ -1338,6 +1507,22 @@ async function startServer() {
       db.run("DELETE FROM likes WHERE user_key=? AND target='qa_answer' AND target_id=?", [userKey, req.params.id]);
     } else {
       db.run("INSERT INTO likes (user_key, target, target_id) VALUES (?, 'qa_answer', ?)", [userKey, req.params.id]);
+      // Notify answer owner (once per liker)
+      const aInfo = dbGet('SELECT user_id, question_id FROM qa_answers WHERE id=?', [req.params.id]);
+      if (aInfo) {
+        const alreadyNotified = dbGet(
+          "SELECT id FROM notifications WHERE user_id=? AND from_user_id=? AND type='qa_like_answer' AND target_id=?",
+          [aInfo.user_id, req.user.id, parseInt(req.params.id)]
+        );
+        if (!alreadyNotified) {
+          const qTitle = dbGet('SELECT title FROM qa_questions WHERE id=?', [aInfo.question_id]);
+          const fromUser = dbGet('SELECT nickname, username FROM users WHERE id=?', [req.user.id]);
+          const fromName = fromUser ? (fromUser.nickname || fromUser.username) : req.user.username;
+          createNotification(aInfo.user_id, req.user.id, 'qa_like_answer', parseInt(req.params.id),
+            `${fromName} 赞了你在《${qTitle ? qTitle.title : '问题'}》中的回答`,
+            `/qa.html?open=${aInfo.question_id}`);
+        }
+      }
     }
     saveDb();
     const like_count = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_answer' AND target_id=?", [req.params.id]).n;
@@ -1362,7 +1547,58 @@ async function startServer() {
     if (!a) return res.status(404).json({ error: '回答不存在' });
     if (a.user_id !== req.user.id && !req.user.isAdmin)
       return res.status(403).json({ error: '无权删除此回答' });
-    db.run('DELETE FROM qa_answers WHERE id=?', [a.id]);
+    db.run('DELETE FROM qa_answers WHERE id=? OR parent_id=?', [a.id, a.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // ── Notification routes ────────────────────────────────────
+
+  // GET /api/notifications — list for current user (newest 50)
+  app.get('/api/notifications', requireAuth, (req, res) => {
+    const rows = dbAll(`
+      SELECT n.id, n.type, n.target_id, n.message, n.link, n.is_read, n.created_at,
+             u.username as from_username,
+             COALESCE(u.nickname, u.username) as from_name,
+             u.avatar as from_avatar
+      FROM notifications n
+      LEFT JOIN users u ON n.from_user_id = u.id
+      WHERE n.user_id = ?
+      ORDER BY n.created_at DESC LIMIT 50
+    `, [req.user.id]);
+    res.json(rows);
+  });
+
+  // GET /api/notifications/unread-count
+  app.get('/api/notifications/unread-count', requireAuth, (req, res) => {
+    const row = dbGet('SELECT COUNT(*) as n FROM notifications WHERE user_id=? AND is_read=0', [req.user.id]);
+    res.json({ count: row ? row.n : 0 });
+  });
+
+  // POST /api/notifications/read/:id — mark one as read
+  app.post('/api/notifications/read/:id', requireAuth, (req, res) => {
+    db.run('UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?', [req.params.id, req.user.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // POST /api/notifications/read-all — mark all unread as read
+  app.post('/api/notifications/read-all', requireAuth, (req, res) => {
+    db.run('UPDATE notifications SET is_read=1 WHERE user_id=? AND is_read=0', [req.user.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // DELETE /api/notifications/:id — permanently delete a notification
+  app.delete('/api/notifications/:id', requireAuth, (req, res) => {
+    db.run('DELETE FROM notifications WHERE id=? AND user_id=?', [req.params.id, req.user.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // POST /api/notifications/clear-read — delete all read notifications
+  app.post('/api/notifications/clear-read', requireAuth, (req, res) => {
+    db.run('DELETE FROM notifications WHERE user_id=? AND is_read=1', [req.user.id]);
     saveDb();
     res.json({ ok: true });
   });

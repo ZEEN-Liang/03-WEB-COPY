@@ -14,7 +14,7 @@ function buildCommentsSection(postId) {
 
   // Avatar — fetch own avatar from server if not cached
   const myAv = window._myAvatar !== undefined ? window._myAvatar : null;
-  const myAvatarEl = token && username ? avatarHtml(username, myAv, 36)
+  const myAvatarEl = token && username ? avatarEl(username, myAv, 36)
     : `<div style="width:36px;height:36px;border-radius:50%;background:var(--rule);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink-faint);flex-shrink:0">?</div>`;
 
   // Input area
@@ -151,15 +151,15 @@ async function deleteComment(commentId, btn) {
 }
 
 // Active reply state
-let replyTarget = null; // { id, username }
+let replyTarget = null; // { id, username, userId }
 
-function openReplyBox(commentId, authorName) {
+function openReplyBox(commentId, authorName, targetUserId) {
   // Close any open reply box first
   document.querySelectorAll('.reply-box.open').forEach(b => b.classList.remove('open'));
   if (replyTarget && replyTarget.id === commentId && replyTarget.username === authorName) {
     replyTarget = null; return; // toggle off same target
   }
-  replyTarget = { id: commentId, username: authorName };
+  replyTarget = { id: commentId, username: authorName, userId: targetUserId || null };
   const box = document.getElementById('reply-box-' + commentId);
   if (!box) return;
   // Update header to show current reply target
@@ -193,7 +193,7 @@ async function submitReply(commentId, authorName) {
     const res = await fetch(`/api/posts/${currentPostId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ content, parent_id: commentId, reply_to: authorName })
+      body: JSON.stringify({ content, parent_id: commentId, reply_to: authorName, reply_to_user_id: replyTarget?.userId || null })
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error || '回复失败'); return; }
@@ -221,19 +221,19 @@ function buildCommentEl(cm, adminMode, isReply = false, rootId = null) {
   const likedClass  = cm.already_liked ? ' liked' : '';
   const likedHeart  = cm.already_liked ? '♥' : '♡';
   const canLike     = token ? '' : 'disabled title="登录后才能点赞"';
-  const replyToHtml = cm.reply_to
-    ? `<div class="reply-to-tag">↩ 回复 ${escapeHtml(cm.reply_to)}</div>` : '';
+  const replyToHtml = buildReplyToTag(cm.reply_to);
 
   const triggerRootId = isReply ? (rootId || cm.parent_id) : cm.id;
   const replyTrigger  = token
     ? `<button class="comment-reply-trigger"
          data-cid="${triggerRootId}"
-         data-author="${escapeHtml(cmDisplayName)}"
-         data-username="${escapeHtml(cm.username)}">↩ 回复</button>`
+         data-author="${escHtml(cmDisplayName)}"
+         data-username="${escHtml(cm.username)}"
+         data-uid="${cm.comment_user_id || ''}">↩ 回复</button>`
     : '';
   const cmAvatarBlock = cmProfileUrl
-    ? `<a href="${cmProfileUrl}" style="display:block;flex-shrink:0;text-decoration:none" title="查看主页">${avatarHtml(cmDisplayName, cm.avatar, 36)}</a>`
-    : avatarHtml(cmDisplayName, cm.avatar, 36);
+    ? `<a href="${cmProfileUrl}" style="display:block;flex-shrink:0;text-decoration:none" title="查看主页">${avatarEl(cmDisplayName, cm.avatar, 36)}</a>`
+    : avatarEl(cmDisplayName, cm.avatar, 36);
 
   div.innerHTML = `
     ${cmAvatarBlock}
@@ -241,13 +241,13 @@ function buildCommentEl(cm, adminMode, isReply = false, rootId = null) {
       ${replyToHtml}
       <div class="comment-meta">
         ${cmProfileUrl
-          ? `<a href="${cmProfileUrl}" class="comment-author" style="text-decoration:none;color:inherit" title="查看主页">${escapeHtml(cmDisplayName)}</a>`
-          : `<span class="comment-author">${escapeHtml(cmDisplayName)}</span>`
+          ? `<a href="${cmProfileUrl}" class="comment-author" style="text-decoration:none;color:inherit" title="查看主页">${escHtml(cmDisplayName)}</a>`
+          : `<span class="comment-author">${escHtml(cmDisplayName)}</span>`
         }
         <span class="comment-dot"></span>
         <span class="comment-date">${formatDateFull(cm.created_at)}</span>
       </div>
-      <div class="comment-text">${escapeHtml(cm.content)}</div>
+      <div class="comment-text">${escHtml(cm.content)}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="comment-like-btn${likedClass}" data-id="${cm.id}" ${canLike}>
           <span>${likedHeart}</span>
@@ -302,14 +302,14 @@ async function loadComments() {
         const cmDN = cm.display_name || cm.username || '匿名';
         box.innerHTML = `
           <div class="reply-box-header">
-            <span>回复 <span class="reply-box-to">${escapeHtml(cmDN)}</span></span>
+            <span>回复 <span class="reply-box-to">${escHtml(cmDN)}</span></span>
           </div>
           <textarea class="reply-textarea" maxlength="500" placeholder="写下你的回复…"></textarea>
           <div class="reply-box-footer">
             <span class="reply-char-count">0 / 500</span>
             <div class="reply-box-btns">
               <button class="btn-reply-cancel" onclick="closeReplyBox(${cm.id})">取消</button>
-              <button class="btn-reply-submit" onclick="submitReply(${cm.id}, '${escapeHtml(cmDN)}')"><span>发送回复</span></button>
+              <button class="btn-reply-submit" onclick="submitReply(${cm.id}, '${escHtml(cmDN)}')"><span>发送回复</span></button>
             </div>
           </div>
         `;
@@ -346,7 +346,7 @@ async function loadComments() {
     // Bind reply triggers (data-cid = root comment id, data-author = person being replied to)
     list.querySelectorAll('.comment-reply-trigger').forEach(btn => {
       btn.addEventListener('click', () => {
-        openReplyBox(Number(btn.dataset.cid), btn.dataset.author);
+        openReplyBox(Number(btn.dataset.cid), btn.dataset.author, btn.dataset.uid ? Number(btn.dataset.uid) : null);
       });
     });
 

@@ -70,7 +70,9 @@ async function loadArticle() {
     </div>`;
 
   try {
-    const res = await fetch(`/api/posts/${id}`);
+    const res = await fetch(`/api/posts/${id}`, {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    });
 
     if (res.status === 404) {
       app.innerHTML = `

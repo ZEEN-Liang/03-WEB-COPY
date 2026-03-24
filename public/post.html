@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=DM+Serif+Display&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/post.css">
+<link rel="stylesheet" href="css/nav-notify.css">
 </head>
 <body>
 
@@ -19,6 +20,7 @@
     <a href="/qa.html" class="nav-link">问 答</a>
     <a href="/post.html" class="nav-link active">投 稿</a>
   </div>
+  <div id="nav-notify"></div>
   <div class="nav-right">
     <div class="nav-user">你好，<span id="nav-username"></span></div>
     <a href="/profile.html" class="nav-btn" style="font-size:12px;padding:5px 12px;border:1px solid var(--rule);border-radius:3px;color:var(--ink-muted);text-decoration:none;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--rule)';this.style.color='var(--ink-muted)'">我的主页</a>
@@ -123,7 +125,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="script/post.form.js"></script>
-
+<script src="script/nav-notify.js"></script>
 <script src="script/nav-intercept.js"></script>
 
 </body>

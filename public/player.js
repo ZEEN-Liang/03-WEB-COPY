@@ -485,6 +485,21 @@
 
   // ── Audio engine ─────────────────────────────────────────────
   var audio = new Audio();
+  window._fpAudio = audio;   // expose for rain intensity sync
+
+  // ── Web Audio analyser (initialised on first play gesture) ───
+  var _audioCtx = null, _analyserNode = null;
+  function initAnalyser() {
+    if (_audioCtx) { if (_audioCtx.state === 'suspended') _audioCtx.resume(); return; }
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      _analyserNode = _audioCtx.createAnalyser();
+      _analyserNode.fftSize = 256;
+      _audioCtx.createMediaElementSource(audio).connect(_analyserNode);
+      _analyserNode.connect(_audioCtx.destination);
+      window._fpAnalyser = _analyserNode;
+    } catch(e) {}
+  }
   var playlist = [], curIdx = -1, seeking = false, loopMode = 0, plOpen = false;
   var LOOP_LABELS = ['↻','↻¹','⇄'], LOOP_TIPS = ['顺序','单曲','随机'];
 
@@ -545,6 +560,7 @@
 
   function playTrack(idx) {
     if (!playlist.length) return;
+    initAnalyser();
     idx = ((idx % playlist.length) + playlist.length) % playlist.length;
     curIdx = idx; var t = playlist[idx];
     audio.src = t.url; audio.load(); audio.play().catch(function(){});
@@ -575,7 +591,7 @@
   wrap.querySelector('#fp-play').addEventListener('click', function() {
     if (!playlist.length) return;
     if (curIdx < 0) { playTrack(0); return; }
-    if (audio.paused) { audio.play().catch(function(){}); saveState({playing:true}); }
+    if (audio.paused) { initAnalyser(); audio.play().catch(function(){}); saveState({playing:true}); }
     else { audio.pause(); saveState({playing:false}); }
     updateNow();
   });

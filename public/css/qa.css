@@ -537,6 +537,78 @@ body::before {
   padding: 32px;
 }
 
+/* ── Reply button ── */
+.btn-reply {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 12px; color: var(--ink-faint);
+  background: none; border: 1px solid transparent;
+  cursor: pointer; font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-reply:hover { color: var(--accent); border-color: rgba(46,122,181,0.3); }
+
+/* ── Replies container ── */
+.answer-replies {
+  margin-top: 14px;
+  padding-left: 18px;
+  border-left: 2px solid var(--rule);
+  display: flex; flex-direction: column; gap: 0;
+}
+
+.reply-item {
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+.reply-item:last-child { border-bottom: none; }
+
+.reply-head {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin-bottom: 5px;
+  font-size: 12px; color: var(--ink-muted);
+}
+.reply-to-tag {
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb,74,120,180),0.08);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.reply-body {
+  font-size: 13px; line-height: 1.7; color: var(--ink-muted);
+  white-space: pre-wrap;
+}
+
+.reply-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px;
+}
+
+/* ── Inline reply form ── */
+.reply-form-wrap {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+}
+
+.reply-textarea {
+  width: 100%; min-height: 60px;
+  padding: 8px; border: 1px solid var(--rule);
+  border-radius: 4px; font-family: inherit; font-size: 13px;
+  resize: none; outline: none;
+  background: white; color: var(--ink);
+  transition: border-color 0.2s;
+}
+.reply-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,122,181,0.08); }
+
+.reply-form-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 6px;
+}
+
 /* Answer form */
 .answer-form-wrap {
   margin-top: 28px; padding-top: 24px;

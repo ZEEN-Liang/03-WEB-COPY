@@ -50,14 +50,16 @@ async function loadProfile() {
   }
   try {
     const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-    const [profRes, postsRes] = await Promise.all([
+    const [profRes, postsRes, qsRes] = await Promise.all([
       fetch('/api/profile/' + encodeURIComponent(targetUser), { headers }),
-      fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts')
+      fetch('/api/profile/' + encodeURIComponent(targetUser) + '/posts'),
+      fetch('/api/profile/' + encodeURIComponent(targetUser) + '/questions')
     ]);
     if (!profRes.ok) { page.innerHTML = `<div class="state-msg"><div class="icon">◻</div><div>用户不存在</div></div>`; return; }
     profileData = await profRes.json();
     const posts  = await postsRes.json();
-    renderPage(profileData, posts);
+    const questions = qsRes.ok ? await qsRes.json() : [];
+    renderPage(profileData, posts, questions);
   } catch(e) {
     document.getElementById('page').innerHTML = `<div class="state-msg"><div class="icon">!</div><div>加载失败，请确认服务器运行中</div></div>`;
   }
@@ -78,7 +80,7 @@ function renderUserCard(u, delay = 0) {
     </a>`;
 }
 
-function renderPage(u, posts) {
+function renderPage(u, posts, questions = []) {
   document.title = (u.nickname || u.username) + ' · 论坛广场';
   const instruments = u.instruments ? u.instruments.split(',').filter(Boolean) : [];
   const instHtml    = instruments.map(i => `<span class="instrument-tag">${esc(i.trim())}</span>`).join('');
@@ -106,6 +108,27 @@ function renderPage(u, posts) {
           <span class="post-stat">👁 ${p.view_count||0}</span>
           <span class="post-stat">💬 ${p.comment_count||0}</span>
           <span class="post-stat">♥ ${p.like_count||0}</span>
+        </div>
+      </div>`).join('');
+
+  const qListHtml = questions.length === 0
+    ? `<div class="empty-tab">${isOwn ? '你还没有提出任何问题' : '该用户暂无提问'}</div>`
+    : questions.map((q, i) => `
+      <div class="post-item" style="animation-delay:${i*0.04}s" onclick="window.location.href='/qa.html?open=${q.id}'">
+        <div class="post-title" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;padding:2px 7px;border-radius:3px;font-weight:500;letter-spacing:0.06em;flex-shrink:0;
+            ${q.status==='solved'
+              ? 'background:rgba(74,180,74,0.12);color:#4ab44a'
+              : 'background:rgba(230,160,50,0.12);color:#c8902a'}">
+            ${q.status==='solved' ? '已解决' : '悬挂中'}
+          </span>
+          ${esc(q.title)}
+        </div>
+        <div class="post-footer-stats">
+          <span class="post-stat">📅 ${formatDate(q.created_at)}</span>
+          <span class="post-stat">💬 ${q.answer_count||0} 回答</span>
+          <span class="post-stat">△ ${q.vote_count||0} 赞同</span>
+          ${q.tags ? `<span class="post-stat">${esc(q.tags)}</span>` : ''}
         </div>
       </div>`).join('');
 
@@ -173,6 +196,9 @@ function renderPage(u, posts) {
       <button class="content-tab active" id="tab-posts"     onclick="switchTab('posts')">
         投稿 <span class="tab-count">${posts.length}</span>
       </button>
+      <button class="content-tab" id="tab-questions"  onclick="switchTab('questions')">
+        问答 <span class="tab-count">${questions.length}</span>
+      </button>
       <button class="content-tab" id="tab-following"  onclick="switchTab('following')">
         关注 ${!u.show_follows && !isOwn ? '🔒 ' : ''}<span class="tab-count" id="tc-following">${u.following_count||0}</span>
       </button>
@@ -183,6 +209,9 @@ function renderPage(u, posts) {
 
     <div class="tab-panel active" id="panel-posts">
       <div class="post-list">${postListHtml}</div>
+    </div>
+    <div class="tab-panel" id="panel-questions">
+      <div class="post-list">${qListHtml}</div>
     </div>
     <div class="tab-panel" id="panel-following">
       <div class="user-list" id="list-following"><div class="empty-tab">加载中…</div></div>
