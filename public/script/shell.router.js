@@ -1,10 +1,7 @@
 (function() {
   var frame   = document.getElementById('content-frame');
-  var loading = document.getElementById('frame-loading');
-  var loadTimer;
 
-  // Determine initial page from URL
-  var path   = location.pathname;  // e.g. /app  or  /app/article.html
+  var path   = location.pathname;
   var search = location.search;
   var hash   = location.hash;
 
@@ -21,34 +18,51 @@
     innerPage = '/index.html';
   }
 
-  // Set src once
+  // Prefetch forum when starting from index
+  if (innerPage === '/index.html') {
+    var pf = document.createElement('link');
+    pf.rel = 'prefetch'; pf.href = '/forum.html';
+    document.head.appendChild(pf);
+  }
+
   frame.src = innerPage;
 
-  // On each iframe load: hide loader, sync URL bar & title
   frame.addEventListener('load', function() {
-    clearTimeout(loadTimer);
-    loading.classList.remove('show');
     try {
       var loc = frame.contentWindow.location;
       history.replaceState({ innerUrl: loc.pathname + loc.search }, '', '/app' + loc.pathname + loc.search);
       var t = frame.contentDocument && frame.contentDocument.title;
       if (t) document.title = t;
+      // Mark page type on body for CSS (rain opacity / z-index)
+      var pg = loc.pathname === '/forum.html' ? 'forum' :
+               (loc.pathname === '/index.html' || loc.pathname === '/') ? 'index' : 'other';
+      document.body.dataset.page = pg;
     } catch(e) {}
+    // New page ready — accelerate rain back to full speed
+    if (window._rainNavIn) window._rainNavIn();
   });
 
-  // Called by nav-intercept.js inside iframe to navigate
   window.shellNav = function(url) {
-    clearTimeout(loadTimer);
-    loadTimer = setTimeout(function() { loading.classList.add('show'); }, 60);
-    frame.src = url;
+    // Start rain deceleration; if already decelerating (cover exit sent nav_out
+    // via postMessage first), _rainNavOut is a no-op so the timer isn't reset.
+    if (window._rainNavOut) window._rainNavOut();
+
+    // If rain was already decelerating from a page's own animation, change src
+    // immediately; otherwise give a short head-start before loading new content.
+    var delay = (window._rainNavOut && frame._navAlreadyOut) ? 0 : 320;
+    setTimeout(function() { frame.src = url; }, delay);
+    frame._navAlreadyOut = false;
   };
 
-  // Sync iframe sidebar push with player open/close state
-  // player.js sets body.fp-open; we mirror it to the iframe left offset
-  // Player is now a floating widget — no iframe resizing needed
-
-  // Browser back/forward
   window.addEventListener('popstate', function(e) {
     if (e.state && e.state.innerUrl) frame.src = e.state.innerUrl;
+  });
+
+  // Receive early nav-out signal from iframe (e.g. cover page click before shellNav fires)
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === '_rain_nav_out') {
+      if (window._rainNavOut) window._rainNavOut();
+      frame._navAlreadyOut = true;
+    }
   });
 })();

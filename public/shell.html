@@ -10,13 +10,39 @@
 </head>
 <body>
 
-<!-- iframe is the only content child; player sidebar is injected by player.js as fixed overlay -->
+<!-- Persistent background (survives page navigation) -->
+<div class="bg">
+  <img class="bg-img" src="/images/cover-bg.png" alt="" draggable="false">
+</div>
+
+<!-- Ambient orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- Rain: bg + mid behind iframe, fg in front -->
+<canvas id="rain-bg"></canvas>
+<canvas id="rain-mid"></canvas>
+
+<!-- iframe: all page content lives here -->
 <iframe id="content-frame" name="content"></iframe>
 
-<div id="frame-loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div>
+<!-- Foreground rain — floats above page content for depth -->
+<canvas id="rain-fg"></canvas>
+
 
 <script src="/player.js"></script>
-
+<script src="/script/rain-engine.js"></script>
+<script>
+startRain({
+  canvasIds:   ['rain-bg', 'rain-mid', 'rain-fg'],
+  opacityMult: 0.65,
+  timeStop:    true,
+  mouseEffect: true,
+  exitAnim:    false,
+  pauseEffect: true,
+  volEffect:   true,
+});
+</script>
 <script src="/script/shell.router.js"></script>
 </body>
 </html>
