@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>问答 · 互帮互助</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=DM+Serif+Display&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/qa.css">
+</head>
+<body>
+<div class="masthead"></div>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="/index.html" class="nav-logo">风<em class="char-lan">蓝</em>轻音部</a>
+  <div class="nav-links">
+    <a href="/forum.html" class="nav-link">广 场</a>
+    <a href="/qa.html" class="nav-link active">问 答</a>
+    <a href="/post.html" class="nav-link" id="nav-post-link">投 稿</a>
+  </div>
+  <div class="nav-right" id="nav-right"></div>
+</nav>
+
+<!-- Page -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-eyebrow">Community · Q&amp;A</div>
+      <div class="page-title">互帮<em>问答</em></div>
+    </div>
+    <div class="page-header-right">
+      <div class="q-count" id="q-count"></div>
+      <button class="btn-ask" id="btn-ask" onclick="openAskModal()">＋ 提出问题</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+    <div class="page-main">
+
+      <!-- Tab bar -->
+      <div class="q-tabs">
+        <button class="q-tab q-tab-active" id="tab-open" onclick="switchTab('open')">
+          🎯 悬挂中 <span class="q-section-badge" id="open-count"></span>
+        </button>
+        <button class="q-tab" id="tab-solved" onclick="switchTab('solved')">
+          ✅ 已解决 <span class="q-section-badge q-section-badge-solved" id="solved-count"></span>
+        </button>
+      </div>
+
+      <!-- Single panel -->
+      <div class="q-list" id="q-list-panel">
+        <div class="state-msg"><div class="icon">◌</div><p>加载中...</p></div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-head"><span class="sidebar-head-icon">📊</span>统计</div>
+        <div class="sidebar-stats">
+          <div class="stat-item"><span class="stat-num" id="stat-open">—</span><span class="stat-label">待解决</span></div>
+          <div class="stat-item"><span class="stat-num" id="stat-solved">—</span><span class="stat-label">已解决</span></div>
+        </div>
+      </div>
+      <div class="sidebar-card">
+        <div class="sidebar-head"><span class="sidebar-head-icon">💡</span>提问须知</div>
+        <ul class="sidebar-tips">
+          <li>描述清楚问题背景与现象</li>
+          <li>标注相关标签便于检索</li>
+          <li>收到满意答案后请采纳</li>
+          <li>友善交流，共同成长</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-overlay" onclick="closeDetailModal(event)">
+  <div class="modal detail-modal" id="detail-modal">
+    <button class="modal-close" onclick="closeDetailDirect()">×</button>
+    <div class="detail-scroll" id="detail-inner">
+      <div class="state-msg"><div class="icon">◌</div><p>加载中...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Ask Modal -->
+<div class="modal-overlay" id="ask-overlay" onclick="closeAskModal(event)">
+  <div class="modal ask-modal">
+    <div class="modal-header">
+      <div class="modal-eyebrow">Q&amp;A · 提问</div>
+      <div class="modal-title-text">提出新问题</div>
+      <button class="modal-close" onclick="closeAskDirect()">×</button>
+    </div>
+    <form class="ask-form" id="ask-form" onsubmit="submitQuestion(event)">
+      <label class="form-label">标题 <span class="form-required">*</span></label>
+      <input class="form-input" id="ask-title" type="text" placeholder="简明扼要描述你的问题…" maxlength="120" required>
+      <label class="form-label">详细描述 <span class="form-required">*</span></label>
+      <textarea class="form-textarea" id="ask-content" placeholder="请详细描述问题背景、现象、你已尝试的方法…" rows="6" required></textarea>
+      <label class="form-label">标签 <span class="form-hint">用逗号分隔多个标签</span></label>
+      <input class="form-input" id="ask-tags" type="text" placeholder="例如：乐理, 编曲, 软件">
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" onclick="closeAskDirect()">取消</button>
+        <button type="submit" class="btn-submit" id="ask-submit">发布问题</button>
+      </div>
+      <div class="form-error" id="ask-error"></div>
+    </form>
+  </div>
+</div>
+
+<script src="script/qa.questions.js"></script>
+<script src="script/nav-intercept.js"></script>
+</body>
+</html>

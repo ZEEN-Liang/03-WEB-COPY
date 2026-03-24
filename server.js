@@ -1,4 +1,5 @@
 const express = require('express');
+let mm; // music-metadata (loaded lazily)
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -328,6 +329,32 @@ async function startServer() {
     // Column already exists, ignore
   }
 
+  // Q&A tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS qa_questions (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL,
+      title      TEXT NOT NULL,
+      content    TEXT NOT NULL,
+      status     TEXT NOT NULL DEFAULT 'open',
+      tags       TEXT DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS qa_answers (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      question_id INTEGER NOT NULL,
+      user_id     INTEGER NOT NULL,
+      content     TEXT NOT NULL,
+      is_accepted INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (question_id) REFERENCES qa_questions(id),
+      FOREIGN KEY (user_id)     REFERENCES users(id)
+    )
+  `);
+
   saveDb();
   console.log('✅ 数据库已就绪');
   console.log(`   管理员账号：${ADMIN_USERNAME} / ${ADMIN_PASSWORD}`);
@@ -335,7 +362,13 @@ async function startServer() {
 
   // ── Routes ────────────────────────────────────────────────
 
+  // Root now serves shell.html; shell loads cover (index.html) by default
   app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'shell.html'));
+  });
+
+  // Direct access to cover inside shell
+  app.get('/index.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 
@@ -344,7 +377,16 @@ async function startServer() {
   });
 
   app.get('/cover', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    // Cover is now served inside shell at /
+    res.redirect('/');
+  });
+
+  // Shell app — serves shell.html for /app and /app/* paths
+  app.get('/app', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'shell.html'));
+  });
+  app.get('/app/*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'shell.html'));
   });
 
   // POST /api/register
@@ -489,6 +531,34 @@ async function startServer() {
     });
 
     res.json(sorted);
+  });
+
+  // GET /api/search?q= — search posts and users
+  app.get('/api/search', (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json({ posts: [], users: [] });
+    const like = '%' + q + '%';
+
+    const posts = dbAll(`
+      SELECT p.id, p.title, p.content, p.created_at, p.tags,
+             CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as display_name,
+             u.username, u.avatar
+      FROM posts p JOIN users u ON p.user_id = u.id
+      WHERE p.status = 'published' AND (p.title LIKE ? OR p.content LIKE ? OR p.tags LIKE ?)
+      ORDER BY p.created_at DESC
+      LIMIT 8
+    `, [like, like, like]);
+
+    const users = dbAll(`
+      SELECT username,
+             CASE WHEN nickname IS NOT NULL AND nickname != '' THEN nickname ELSE username END as display_name,
+             bio, avatar
+      FROM users
+      WHERE username LIKE ? OR nickname LIKE ? OR bio LIKE ?
+      LIMIT 5
+    `, [like, like, like]);
+
+    res.json({ posts, users });
   });
 
   // GET /api/posts/:id — single post, respects status, records view
@@ -888,21 +958,105 @@ async function startServer() {
     res.json(tracks.map(t => ({ ...t, url: '/music/' + t.filename })));
   });
 
+  // POST /api/music/parse — read ID3/vorbis tags from uploaded file, return metadata
+  // File is uploaded temporarily, parsed, then deleted
+  app.post('/api/music/parse', requireAuth, (req, res) => {
+    const parseStorage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, musicDir),
+      filename:    (req, file, cb) => cb(null, '_parse_tmp_' + Date.now() + safeExt(file.mimetype))
+    });
+    const parseUpload = multer({
+      storage: parseStorage,
+      limits: { fileSize: 60 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (file.originalname.match(/\.(mp3|flac|wav|ogg|aac|m4a)$/i) ||
+            file.mimetype.startsWith('audio/'))
+          cb(null, true);
+        else cb(new Error('不支持的格式'));
+      }
+    });
+    parseUpload.single('file')(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: '未收到文件' });
+      const tmpPath = path.join(musicDir, req.file.filename);
+      try {
+        // Lazy-load music-metadata
+        if (!mm) mm = await import('music-metadata');
+        const meta = await mm.parseFile(tmpPath, { duration: true });
+        const { title, artist, album, picture } = meta.common;
+        const duration = meta.format.duration ? Math.round(meta.format.duration) : 0;
+        // Extract cover art if present
+        let coverUrl = null;
+        if (picture && picture.length > 0) {
+          const pic = picture[0];
+          const coverName = '_cover_' + Date.now() + '.jpg';
+          const coverPath = path.join(musicDir, coverName);
+          fs.writeFileSync(coverPath, pic.data);
+          coverUrl = '/music/' + coverName;
+        }
+        // Keep tmp file for actual upload — return its temp filename so client can confirm
+        res.json({
+          title:    title  || '',
+          artist:   artist || '',
+          album:    album  || '',
+          duration,
+          cover:    coverUrl,
+          tmpFile:  req.file.filename   // client sends this back to confirm upload
+        });
+      } catch(e) {
+        // Parsing failed — still return the tmpFile so user can fill manually
+        try { fs.unlinkSync(tmpPath); } catch(_) {}
+        res.json({ title: '', artist: '', album: '', duration: 0, cover: null, tmpFile: null, parseError: true });
+      }
+    });
+  });
+
   // POST /api/music — any logged-in user can upload
   app.post('/api/music', requireAuth, (req, res) => {
-    uploadMusic.single('file')(req, res, (err) => {
+    // Use multer to parse the multipart body first (fields only, no new file)
+    // This allows us to read tmpFile even when no new file is being uploaded
+    const noFileUpload = multer().none();
+    noFileUpload(req, res, function(err) {
       if (err) return res.status(400).json({ error: err.message });
-      if (!req.file) return res.status(400).json({ error: '请选择音频文件' });
-      const { title, artist } = req.body;
-      if (!title || !title.trim()) return res.status(400).json({ error: '请填写曲目名称' });
-      const uploaderId = req.user.isAdmin ? null : req.user.id;
-      db.run(
-        'INSERT INTO music (title, artist, filename, user_id) VALUES (?, ?, ?, ?)',
-        [title.trim(), artist ? artist.trim() : null, req.file.filename, uploaderId]
-      );
-      const { id } = dbGet('SELECT last_insert_rowid() as id');
-      saveDb();
-      res.status(201).json({ id, title: title.trim(), artist: artist || null, url: '/music/' + req.file.filename });
+
+      const { title, artist, tmpFile, duration, cover } = req.body;
+
+      // ── Branch A: file already uploaded via /parse ──────────
+      if (tmpFile && tmpFile.startsWith('_parse_tmp_')) {
+        const tmpPath = path.join(musicDir, tmpFile);
+        if (!fs.existsSync(tmpPath))
+          return res.status(400).json({ error: '临时文件不存在，请重新上传' });
+        if (!title || !title.trim())
+          return res.status(400).json({ error: '请填写曲目名称' });
+        const ext = path.extname(tmpFile);
+        const finalName = Date.now() + '-' + Math.random().toString(36).slice(2) + ext;
+        fs.renameSync(tmpPath, path.join(musicDir, finalName));
+        const uploaderId = req.user.isAdmin ? null : req.user.id;
+        const dur = parseInt(duration) || 0;
+        db.run(
+          'INSERT INTO music (title, artist, filename, duration, cover, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [title.trim(), artist ? artist.trim() : null, finalName, dur, cover || null, uploaderId]
+        );
+        const { id } = dbGet('SELECT last_insert_rowid() as id');
+        saveDb();
+        return res.status(201).json({ id, title: title.trim(), artist: artist||null, url: '/music/'+finalName });
+      }
+
+      // ── Branch B: fresh upload (parse failed or skipped) ────
+      uploadMusic.single('file')(req, res, (err2) => {
+        if (err2) return res.status(400).json({ error: err2.message });
+        if (!req.file) return res.status(400).json({ error: '请选择音频文件' });
+        const t = req.body.title, a = req.body.artist;
+        if (!t || !t.trim()) return res.status(400).json({ error: '请填写曲目名称' });
+        const uploaderId = req.user.isAdmin ? null : req.user.id;
+        db.run(
+          'INSERT INTO music (title, artist, filename, user_id) VALUES (?, ?, ?, ?)',
+          [t.trim(), a ? a.trim() : null, req.file.filename, uploaderId]
+        );
+        const { id } = dbGet('SELECT last_insert_rowid() as id');
+        saveDb();
+        res.status(201).json({ id, title: t.trim(), artist: a||null, url: '/music/'+req.file.filename });
+      });
     });
   });
 
@@ -962,6 +1116,29 @@ async function startServer() {
     });
   });
 
+  // GET /api/admin/danmaku — all danmaku with user info (admin only)
+  app.get('/api/admin/danmaku', requireAdmin, (req, res) => {
+    const rows = dbAll(`
+      SELECT d.id, d.content, d.color, d.created_at,
+             u.username,
+             COALESCE(u.nickname, u.username) as display_name
+      FROM danmaku d
+      JOIN users u ON d.user_id = u.id
+      ORDER BY d.created_at DESC
+      LIMIT 500
+    `);
+    res.json(rows);
+  });
+
+  // DELETE /api/admin/danmaku/:id — delete a danmaku (admin only)
+  app.delete('/api/admin/danmaku/:id', requireAdmin, (req, res) => {
+    const row = dbGet('SELECT id FROM danmaku WHERE id=?', [req.params.id]);
+    if (!row) return res.status(404).json({ error: '弹幕不存在' });
+    db.run('DELETE FROM danmaku WHERE id=?', [req.params.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
   // GET /api/danmaku — fetch recent danmaku (newest 60, or since a given id)
   app.get('/api/danmaku', (req, res) => {
     const since = parseInt(req.query.since) || 0;
@@ -1018,6 +1195,176 @@ async function startServer() {
       display_name: user.nickname || user.username,
       created_at: new Date().toISOString()
     });
+  });
+
+  // ── Q&A ────────────────────────────────────────────────────
+  // GET /api/qa/questions
+  app.get('/api/qa/questions', (req, res) => {
+    const questions = dbAll(`
+      SELECT q.id, q.title, q.content, q.status, q.tags, q.created_at,
+             q.user_id,
+             CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as display_name,
+             u.username, u.avatar
+      FROM qa_questions q JOIN users u ON q.user_id = u.id
+      ORDER BY q.status ASC, q.created_at DESC
+      LIMIT 200
+    `);
+    const authHeader = req.headers.authorization;
+    let userKey = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try { userKey = 'user:' + jwt.verify(authHeader.slice(7), JWT_SECRET).id; } catch(e) {}
+    }
+    const result = questions.map(q => ({
+      ...q,
+      answer_count:  dbGet('SELECT COUNT(*) as n FROM qa_answers WHERE question_id=?', [q.id]).n,
+      vote_count:    dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_question' AND target_id=?", [q.id]).n,
+      already_voted: userKey ? !!dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_question' AND target_id=?", [userKey, q.id]) : false,
+    }));
+    res.json(result);
+  });
+
+  // POST /api/qa/questions
+  app.post('/api/qa/questions', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员不能提问' });
+    const { title, content, tags } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: '请填写标题' });
+    if (!content || !content.trim()) return res.status(400).json({ error: '请填写详细描述' });
+    if (title.trim().length > 120) return res.status(400).json({ error: '标题不超过 120 字' });
+    db.run(
+      'INSERT INTO qa_questions (user_id, title, content, tags) VALUES (?, ?, ?, ?)',
+      [req.user.id, title.trim(), content.trim(), tags ? tags.trim() : null]
+    );
+    const row = dbGet('SELECT last_insert_rowid() as id');
+    saveDb();
+    res.json({ id: row.id });
+  });
+
+  // GET /api/qa/questions/:id
+  app.get('/api/qa/questions/:id', (req, res) => {
+    const q = dbGet(`
+      SELECT q.id, q.title, q.content, q.status, q.tags, q.created_at,
+             q.user_id,
+             CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as display_name,
+             u.username, u.avatar
+      FROM qa_questions q JOIN users u ON q.user_id = u.id
+      WHERE q.id = ?
+    `, [req.params.id]);
+    if (!q) return res.status(404).json({ error: '问题不存在' });
+
+    const authHeader = req.headers.authorization;
+    let userKey = 'guest:' + (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try { userKey = 'user:' + jwt.verify(authHeader.slice(7), JWT_SECRET).id; } catch(e) {}
+    }
+
+    const answers = dbAll(`
+      SELECT a.id, a.content, a.is_accepted, a.created_at,
+             a.user_id,
+             CASE WHEN u.nickname IS NOT NULL AND u.nickname != '' THEN u.nickname ELSE u.username END as display_name,
+             u.username, u.avatar
+      FROM qa_answers a JOIN users u ON a.user_id = u.id
+      WHERE a.question_id = ?
+      ORDER BY a.is_accepted DESC, a.created_at ASC
+    `, [req.params.id]);
+
+    const answersOut = answers.map(a => ({
+      ...a,
+      like_count:    dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_answer' AND target_id=?", [a.id]).n,
+      already_liked: !!dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_answer' AND target_id=?", [userKey, a.id]),
+    }));
+
+    const vote_count    = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_question' AND target_id=?", [req.params.id]).n;
+    const already_voted = !!dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_question' AND target_id=?", [userKey, req.params.id]);
+
+    res.json({ ...q, vote_count, already_voted, answers: answersOut });
+  });
+
+  // POST /api/qa/questions/:id/vote
+  app.post('/api/qa/questions/:id/vote', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号不能点赞' });
+    const q = dbGet('SELECT id FROM qa_questions WHERE id=?', [req.params.id]);
+    if (!q) return res.status(404).json({ error: '问题不存在' });
+    const userKey = 'user:' + req.user.id;
+    const existing = dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_question' AND target_id=?", [userKey, req.params.id]);
+    if (existing) {
+      db.run("DELETE FROM likes WHERE user_key=? AND target='qa_question' AND target_id=?", [userKey, req.params.id]);
+    } else {
+      db.run("INSERT INTO likes (user_key, target, target_id) VALUES (?, 'qa_question', ?)", [userKey, req.params.id]);
+    }
+    saveDb();
+    const vote_count = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_question' AND target_id=?", [req.params.id]).n;
+    res.json({ voted: !existing, vote_count });
+  });
+
+  // POST /api/qa/questions/:id/answers
+  app.post('/api/qa/questions/:id/answers', requireAuth, (req, res) => {
+    if (req.user.isAdmin) return res.status(403).json({ error: '管理员账号不能参与回答' });
+    const q = dbGet('SELECT id, status FROM qa_questions WHERE id=?', [req.params.id]);
+    if (!q) return res.status(404).json({ error: '问题不存在' });
+    if (q.status === 'solved') return res.status(400).json({ error: '该问题已解决，无法继续回答' });
+    const { content } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: '请填写回答内容' });
+    db.run(
+      'INSERT INTO qa_answers (question_id, user_id, content) VALUES (?, ?, ?)',
+      [q.id, req.user.id, content.trim()]
+    );
+    const row = dbGet('SELECT last_insert_rowid() as id');
+    saveDb();
+    res.json({ id: row.id });
+  });
+
+  // POST /api/qa/answers/:id/accept
+  app.post('/api/qa/answers/:id/accept', requireAuth, (req, res) => {
+    const answer = dbGet('SELECT id, question_id FROM qa_answers WHERE id=?', [req.params.id]);
+    if (!answer) return res.status(404).json({ error: '回答不存在' });
+    const q = dbGet('SELECT id, user_id, status FROM qa_questions WHERE id=?', [answer.question_id]);
+    if (!q) return res.status(404).json({ error: '问题不存在' });
+    if (q.user_id !== req.user.id && !req.user.isAdmin)
+      return res.status(403).json({ error: '只有提问者才能采纳回答' });
+    if (q.status === 'solved') return res.status(400).json({ error: '该问题已经解决' });
+    db.run('UPDATE qa_answers SET is_accepted=1 WHERE id=?', [answer.id]);
+    db.run("UPDATE qa_questions SET status='solved' WHERE id=?", [q.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // POST /api/qa/like/answer/:id
+  app.post('/api/qa/like/answer/:id', requireAuth, (req, res) => {
+    const answer = dbGet('SELECT id FROM qa_answers WHERE id=?', [req.params.id]);
+    if (!answer) return res.status(404).json({ error: '回答不存在' });
+    const userKey = 'user:' + req.user.id;
+    const existing = dbGet("SELECT id FROM likes WHERE user_key=? AND target='qa_answer' AND target_id=?", [userKey, req.params.id]);
+    if (existing) {
+      db.run("DELETE FROM likes WHERE user_key=? AND target='qa_answer' AND target_id=?", [userKey, req.params.id]);
+    } else {
+      db.run("INSERT INTO likes (user_key, target, target_id) VALUES (?, 'qa_answer', ?)", [userKey, req.params.id]);
+    }
+    saveDb();
+    const like_count = dbGet("SELECT COUNT(*) as n FROM likes WHERE target='qa_answer' AND target_id=?", [req.params.id]).n;
+    res.json({ liked: !existing, like_count });
+  });
+
+  // DELETE /api/qa/questions/:id
+  app.delete('/api/qa/questions/:id', requireAuth, (req, res) => {
+    const q = dbGet('SELECT id, user_id FROM qa_questions WHERE id=?', [req.params.id]);
+    if (!q) return res.status(404).json({ error: '问题不存在' });
+    if (q.user_id !== req.user.id && !req.user.isAdmin)
+      return res.status(403).json({ error: '无权删除此问题' });
+    db.run('DELETE FROM qa_answers WHERE question_id=?', [q.id]);
+    db.run('DELETE FROM qa_questions WHERE id=?', [q.id]);
+    saveDb();
+    res.json({ ok: true });
+  });
+
+  // DELETE /api/qa/answers/:id
+  app.delete('/api/qa/answers/:id', requireAuth, (req, res) => {
+    const a = dbGet('SELECT id, user_id FROM qa_answers WHERE id=?', [req.params.id]);
+    if (!a) return res.status(404).json({ error: '回答不存在' });
+    if (a.user_id !== req.user.id && !req.user.isAdmin)
+      return res.status(403).json({ error: '无权删除此回答' });
+    db.run('DELETE FROM qa_answers WHERE id=?', [a.id]);
+    saveDb();
+    res.json({ ok: true });
   });
 
   app.listen(PORT, () => {

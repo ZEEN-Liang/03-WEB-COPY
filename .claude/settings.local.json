@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /d/09-Coding/02-WEB/public/*.html)",
+      "Bash(du -sh /d/09-Coding/02-WEB/*)",
+      "Bash(done)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//d/09-Coding/02-WEB/public/**)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}
